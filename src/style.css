@@ -1,0 +1,243 @@
+:root {
+  color: #f5f6eb;
+  font-family: "Trebuchet MS", "Gill Sans", sans-serif;
+  background:
+    radial-gradient(circle at top, rgba(255, 241, 197, 0.3), transparent 30%),
+    linear-gradient(180deg, #8bc8ff 0%, #c0f1ff 38%, #f1f4d0 100%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  overflow: hidden;
+}
+
+body {
+  background: transparent;
+}
+
+canvas {
+  display: block;
+}
+
+.hud {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 1.25rem;
+  gap: 1rem;
+}
+
+.hud__card,
+.hud__status {
+  backdrop-filter: blur(12px);
+  background: rgba(38, 61, 58, 0.28);
+  border: 1px solid rgba(255, 248, 216, 0.45);
+  border-radius: 1rem;
+  box-shadow: 0 20px 40px rgba(19, 32, 47, 0.18);
+}
+
+.hud__card {
+  max-width: 26rem;
+  padding: 1rem 1.1rem;
+  pointer-events: auto;
+}
+
+.hud__status {
+  padding: 0.8rem 1rem;
+  min-width: 13rem;
+}
+
+.hud__card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.hud__eyebrow {
+  margin: 0 0 0.25rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #f8ffd7;
+}
+
+.hud h1 {
+  margin: 0;
+  font-size: clamp(2rem, 5vw, 3.25rem);
+  line-height: 0.95;
+  color: #fffef4;
+}
+
+.hud__toggle {
+  flex: 0 0 auto;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid rgba(255, 248, 216, 0.45);
+  border-radius: 999px;
+  background: rgba(250, 248, 201, 0.14);
+  color: #fff8de;
+  font: inherit;
+  font-size: 0.86rem;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    transform 120ms ease;
+}
+
+.hud__toggle:hover,
+.hud__toggle:focus-visible {
+  background: rgba(250, 248, 201, 0.22);
+}
+
+.hud__toggle:active {
+  transform: translateY(1px);
+}
+
+.hud__toggle:focus-visible {
+  outline: 2px solid rgba(255, 248, 216, 0.75);
+  outline-offset: 2px;
+}
+
+.hud__body,
+.hud__status p,
+.hud__hint {
+  margin: 0.75rem 0 0;
+  line-height: 1.45;
+}
+
+.hud__hint {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.9rem;
+  font-size: 0.92rem;
+  color: #eef8e8;
+}
+
+.hud__hint span {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.08rem 0.42rem;
+  border-radius: 999px;
+  background: rgba(250, 248, 201, 0.22);
+  color: #fff9d8;
+  margin-right: 0.2rem;
+}
+
+.hud__card.is-collapsed {
+  max-width: 18rem;
+}
+
+.hud__card.is-collapsed #fairy-flight-details {
+  display: none;
+}
+
+.crosshair {
+  pointer-events: none;
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  transform: translate(-50%, -50%);
+}
+
+.crosshair::before,
+.crosshair::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  background: rgba(255, 251, 211, 0.88);
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+}
+
+.crosshair::before {
+  width: 16px;
+  height: 2px;
+}
+
+.crosshair::after {
+  width: 2px;
+  height: 16px;
+}
+
+.time-gui {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 1.25rem;
+  z-index: 15;
+  overflow: hidden;
+  border-radius: 1rem;
+  backdrop-filter: blur(14px);
+  box-shadow: 0 20px 40px rgba(19, 32, 47, 0.22);
+  --background-color: rgba(49, 66, 92, 0.78);
+  --title-background-color: rgba(42, 57, 83, 0.92);
+  --title-text-color: #fff9ef;
+  --text-color: #f4f0e5;
+  --widget-color: rgba(255, 255, 255, 0.16);
+  --hover-color: rgba(255, 255, 255, 0.22);
+  --focus-color: rgba(255, 255, 255, 0.28);
+  --number-color: #ffe7a8;
+  --string-color: #fff5d2;
+}
+
+.performance-gui {
+  position: fixed;
+  left: 1.25rem;
+  bottom: 1.25rem;
+  z-index: 15;
+  overflow: hidden;
+  border-radius: 1rem;
+  backdrop-filter: blur(14px);
+  box-shadow: 0 20px 40px rgba(19, 32, 47, 0.22);
+  --background-color: rgba(42, 56, 48, 0.78);
+  --title-background-color: rgba(30, 43, 37, 0.92);
+  --title-text-color: #fff9ef;
+  --text-color: #eef7ea;
+  --widget-color: rgba(255, 255, 255, 0.12);
+  --hover-color: rgba(255, 255, 255, 0.18);
+  --focus-color: rgba(255, 255, 255, 0.24);
+  --number-color: #ffe7a8;
+  --string-color: #fff5d2;
+}
+
+@media (max-width: 720px) {
+  .time-gui {
+    right: 1rem;
+    bottom: 1rem;
+    left: auto;
+    width: min(18rem, calc(100vw - 2rem));
+  }
+
+  .performance-gui {
+    left: 1rem;
+    bottom: 1rem;
+    width: min(18rem, calc(100vw - 2rem));
+  }
+}
+
+@media (max-width: 720px) {
+  .hud {
+    flex-direction: column;
+  }
+
+  .hud__card,
+  .hud__status {
+    max-width: 100%;
+  }
+
+  .hud__card-header {
+    gap: 0.75rem;
+  }
+}
