@@ -2,12 +2,12 @@
 
 Procedural fairy-world starter built with Three.js and Vite.
 
-## Included
+## For now
 
-- Three explorable placeholder biomes
+- Three explorable biomes.
 - Infinite-ish chunk loading around the camera
-- Fairy-style flying controls
-- Primitive placeholder assets for trees, rocks, mushrooms, crystals, flowers, lanterns, and ambient particles
+- Fairy-style flying controls.
+- Primitive placeholder assets for trees, rocks, mushrooms, crystals, flowers, lanterns, and ambient particles.
 
 ## Run
 
