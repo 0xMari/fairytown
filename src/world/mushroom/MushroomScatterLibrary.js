@@ -63,9 +63,16 @@ export class MushroomScatterLibrary {
     palette,
     terrain,
     getBiomeWeightsAtPosition,
-    instanceCollector
+    instanceCollector,
+    lodFactor = 1
   }) {
-    const anchorCount = Math.floor(randomBetween(rng, 4, 7));
+    const scatterLodFactor = THREE.MathUtils.clamp(lodFactor, 0.35, 1);
+    const anchorCount = Math.max(
+      1,
+      Math.floor(
+        randomBetween(rng, 4, 7) * THREE.MathUtils.lerp(0.45, 1, scatterLodFactor)
+      )
+    );
     const halfSize = chunkSize * 0.5;
 
     for (let index = 0; index < anchorCount; index += 1) {
@@ -102,7 +109,7 @@ export class MushroomScatterLibrary {
         instanceCollector
       });
 
-      if (rng() > 0.45) {
+      if (rng() > THREE.MathUtils.lerp(0.78, 0.45, scatterLodFactor)) {
         addBuiltObject({
           group,
           assetName: "twistedTree",
@@ -121,7 +128,12 @@ export class MushroomScatterLibrary {
         });
       }
 
-      const floorScatterCount = Math.floor(randomBetween(rng, 7, 12));
+      const floorScatterCount = Math.max(
+        2,
+        Math.floor(
+          randomBetween(rng, 7, 12) * THREE.MathUtils.lerp(0.4, 1, scatterLodFactor)
+        )
+      );
 
       for (let scatterIndex = 0; scatterIndex < floorScatterCount; scatterIndex += 1) {
         const angle = rng() * Math.PI * 2;
@@ -150,7 +162,9 @@ export class MushroomScatterLibrary {
         }
 
         const roll = rng();
-        const scaleMultiplier = THREE.MathUtils.lerp(0.45, 1, biomeWeight);
+        const scaleMultiplier =
+          THREE.MathUtils.lerp(0.45, 1, biomeWeight) *
+          THREE.MathUtils.lerp(0.82, 1, scatterLodFactor);
 
         if (roll < 0.22) {
           addBuiltObject({
@@ -234,7 +248,7 @@ export class MushroomScatterLibrary {
         });
       }
 
-      if (rng() > 0.3) {
+      if (rng() > THREE.MathUtils.lerp(0.72, 0.3, scatterLodFactor)) {
         addBuiltObject({
           group,
           assetName: "toadstoolRing",

@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { fbm2D } from "./noise.js";
 
 export const TERRAIN_CHUNK_SEGMENTS = 36;
+const TERRAIN_TEXTURE_WORLD_SCALE = 18;
 
 export function getTerrainHeight(x, z, seed) {
   const broad = fbm2D((x + 180) / 240, (z - 120) / 240, seed + 101, 5, 2.05, 0.52);
@@ -33,15 +34,20 @@ export function createTerrainGeometry({
 }) {
   const geometry = new THREE.PlaneGeometry(chunkSize, chunkSize, segments, segments);
   const positions = geometry.attributes.position;
+  const uvs = geometry.attributes.uv;
 
   for (let index = 0; index < positions.count; index += 1) {
     const localX = positions.getX(index);
     const localZ = -positions.getY(index);
+    const worldX = chunkX * chunkSize + localX;
+    const worldZ = chunkZ * chunkSize + localZ;
     const height = getTerrainHeightInChunk(localX, localZ, chunkX, chunkZ, chunkSize, seed);
     positions.setZ(index, height + heightOffset);
+    uvs.setXY(index, worldX / TERRAIN_TEXTURE_WORLD_SCALE, worldZ / TERRAIN_TEXTURE_WORLD_SCALE);
   }
 
   positions.needsUpdate = true;
+  uvs.needsUpdate = true;
   geometry.computeVertexNormals();
   geometry.computeBoundingBox();
   geometry.computeBoundingSphere();

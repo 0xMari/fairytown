@@ -7,9 +7,44 @@ const MEADOW_GRASS_COVER_SETTINGS = {
   jitterRatio: 0.2,
   overlap: 1.2
 };
+const MEADOW_GRASS_PATCH_SIZE = 12;
 
 function randomBetween(rng, min, max) {
   return min + (max - min) * rng();
+}
+
+function getPatchKey(localX, localZ, patchOffset, patchSize) {
+  const patchX = Math.floor((localX + patchOffset) / patchSize);
+  const patchZ = Math.floor((localZ + patchOffset) / patchSize);
+  return `${patchX},${patchZ}`;
+}
+
+function addMatrixToPatchMap(patchMatrices, patchKey, matrix) {
+  const matrices = patchMatrices.get(patchKey);
+
+  if (matrices) {
+    matrices.push(matrix.clone());
+    return;
+  }
+
+  patchMatrices.set(patchKey, [matrix.clone()]);
+}
+
+function addPatchMeshesToGroup(group, geometry, material, patchMatrices) {
+  for (const matrices of patchMatrices.values()) {
+    const mesh = new THREE.InstancedMesh(geometry, material, matrices.length);
+
+    matrices.forEach((instanceMatrix, index) => {
+      mesh.setMatrixAt(index, instanceMatrix);
+    });
+
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.receiveShadow = false;
+    mesh.castShadow = false;
+    mesh.computeBoundingBox();
+    mesh.computeBoundingSphere();
+    group.add(mesh);
+  }
 }
 
 function sampleWarpedField(worldX, worldZ, seed, options) {
@@ -278,9 +313,10 @@ vec4 diffuseColor = vec4(bladeColor, opacity);`
     }
 
     mesh.instanceMatrix.needsUpdate = true;
-    mesh.receiveShadow = true;
+    mesh.receiveShadow = false;
     mesh.castShadow = false;
-    mesh.frustumCulled = false;
+    mesh.computeBoundingBox();
+    mesh.computeBoundingSphere();
 
     return {
       object: mesh
@@ -293,6 +329,7 @@ vec4 diffuseColor = vec4(bladeColor, opacity);`
     chunkZ,
     seed,
     rng,
+    lodFactor = 1,
     terrain,
     getBiomeWeightsAtPosition,
     biomeWeightKey = "meadow"
@@ -304,9 +341,12 @@ vec4 diffuseColor = vec4(bladeColor, opacity);`
     const group = new THREE.Group();
     const halfSize = chunkSize * 0.5;
     const overlap = MEADOW_GRASS_COVER_SETTINGS.overlap;
-    const spacing = MEADOW_GRASS_COVER_SETTINGS.spacing;
+    const lodDensity = THREE.MathUtils.clamp(lodFactor, 0.35, 1);
+    const spacing =
+      MEADOW_GRASS_COVER_SETTINGS.spacing * THREE.MathUtils.lerp(1.55, 1, lodDensity);
     const jitter = spacing * MEADOW_GRASS_COVER_SETTINGS.jitterRatio;
-    const matrices = [];
+    const patchOffset = halfSize + overlap;
+    const patchMatrices = new Map();
 
     const position = new THREE.Vector3();
     const quaternion = new THREE.Quaternion();
@@ -344,7 +384,10 @@ vec4 diffuseColor = vec4(bladeColor, opacity);`
         const density =
           THREE.MathUtils.smoothstep(coverage, 0.2, 1) *
           THREE.MathUtils.lerp(0.68, 1.16, breakup);
-        const presence = meadowWeight * Math.min(1, density);
+        const presence =
+          meadowWeight *
+          Math.min(1, density) *
+          THREE.MathUtils.lerp(0.52, 1, lodDensity);
 
         if (presence < 0.08 || rng() > presence) {
           continue;
@@ -368,29 +411,24 @@ vec4 diffuseColor = vec4(bladeColor, opacity);`
         const localScale =
           baseScale *
           THREE.MathUtils.lerp(0.82, 1.18, breakup) *
-          THREE.MathUtils.lerp(0.4, 1, presence);
+          THREE.MathUtils.lerp(0.4, 1, presence) *
+          THREE.MathUtils.lerp(0.88, 1, lodDensity);
 
         scale.setScalar(localScale);
         matrix.compose(position, quaternion, scale);
-        matrices.push(matrix.clone());
+        addMatrixToPatchMap(
+          patchMatrices,
+          getPatchKey(jitteredX, jitteredZ, patchOffset, MEADOW_GRASS_PATCH_SIZE),
+          matrix
+        );
       }
     }
 
-    if (matrices.length === 0) {
+    if (patchMatrices.size === 0) {
       return null;
     }
 
-    const mesh = new THREE.InstancedMesh(this.geometry, this.material, matrices.length);
-
-    matrices.forEach((instanceMatrix, index) => {
-      mesh.setMatrixAt(index, instanceMatrix);
-    });
-
-    mesh.instanceMatrix.needsUpdate = true;
-    mesh.receiveShadow = true;
-    mesh.castShadow = false;
-    mesh.frustumCulled = false;
-    group.add(mesh);
+    addPatchMeshesToGroup(group, this.geometry, this.material, patchMatrices);
 
     return {
       object: group

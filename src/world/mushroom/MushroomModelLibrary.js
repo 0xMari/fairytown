@@ -146,7 +146,10 @@ export class MushroomModelLibrary {
         this.templates.set(mushroomKey, template);
         this.descriptors.set(mushroomKey, extractInstancedMeshDescriptors(template));
         this.batchBuilders.set(mushroomKey, (placements) =>
-          buildInstancedGroupFromDescriptors(this.descriptors.get(mushroomKey), placements)
+          buildInstancedGroupFromDescriptors(this.descriptors.get(mushroomKey), placements, {
+            castShadow: false,
+            receiveShadow: true
+          })
         );
       })
     );

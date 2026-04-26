@@ -292,11 +292,14 @@ export const VILLAGE_BIOME = {
     natureBiome,
     natureBiomeKey,
     naturePalette,
-    instanceCollector
+    instanceCollector,
+    lodFactor
   }) {
-    const fluffyGrass = assetContext?.medow?.fluffyGrass;
+    // const fluffyGrass = assetContext?.medow?.fluffyGrass;
     const moss = assetContext?.mushroom?.moss;
 
+    // Meadow grass instancing is temporarily disabled in favor of the textured terrain pass.
+    /*
     if (natureBiomeKey === "meadow" && fluffyGrass) {
       const groundCover = fluffyGrass.createGroundCover({
         chunkSize,
@@ -304,6 +307,7 @@ export const VILLAGE_BIOME = {
         chunkZ,
         seed,
         rng,
+        lodFactor,
         terrain,
         getBiomeWeightsAtPosition,
         biomeWeightKey: "meadow"
@@ -313,6 +317,7 @@ export const VILLAGE_BIOME = {
         group.add(groundCover.object);
       }
     }
+    */
 
     if (natureBiomeKey === "mushrooms" && moss) {
       group.add(
@@ -322,6 +327,7 @@ export const VILLAGE_BIOME = {
           chunkZ,
           seed,
           rng,
+          lodFactor,
           terrain,
           biomeKey: "mushrooms",
           getBiomeKeyAtPosition: getNatureBiomeKeyAtPosition,

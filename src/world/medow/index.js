@@ -1,6 +1,7 @@
-import { FluffyGrassLibrary } from "./FluffyGrassLibrary.js";
+// import { FluffyGrassLibrary } from "./FluffyGrassLibrary.js";
 import { BushLibrary } from "./BushLibrary.js";
 import { FlowerLibrary } from "./FlowerLibrary.js";
+import { MeadowGroundLibrary } from "./MeadowGroundLibrary.js";
 
 export const MEDOW_BIOME = {
   name: "Sunlit Meadow",
@@ -26,8 +27,11 @@ export const MEDOW_BIOME = {
     rng,
     assetContext,
     terrain,
-    getBiomeWeightsAtPosition
+    getBiomeWeightsAtPosition,
+    lodFactor
   }) {
+    // Meadow grass instancing is temporarily disabled in favor of the textured terrain pass.
+    /*
     const fluffyGrass = assetContext?.medow?.fluffyGrass;
 
     if (!fluffyGrass) {
@@ -40,6 +44,7 @@ export const MEDOW_BIOME = {
       chunkZ,
       seed,
       rng,
+      lodFactor,
       terrain,
       getBiomeWeightsAtPosition
     });
@@ -47,25 +52,28 @@ export const MEDOW_BIOME = {
     if (groundCover?.object) {
       group.add(groundCover.object);
     }
+    */
   }
 };
 
 export function createMedowAssetContext() {
   return {
-    fluffyGrass: new FluffyGrassLibrary(),
+    ground: new MeadowGroundLibrary(),
+    // fluffyGrass: new FluffyGrassLibrary(),
     bushes: new BushLibrary(),
     flowers: new FlowerLibrary()
   };
 }
 
-export async function loadMedowAssets(assetContext) {
+export async function loadMedowAssets(assetContext, renderer) {
   await Promise.all([
-    assetContext.fluffyGrass.load(),
+    assetContext.ground.load(renderer),
+    // assetContext.fluffyGrass.load(),
     assetContext.bushes.load(),
     assetContext.flowers.load()
   ]);
 }
 
 export function updateMedowAssets(assetContext, elapsedTime) {
-  assetContext.fluffyGrass.update(elapsedTime);
+  // assetContext.fluffyGrass.update(elapsedTime);
 }

@@ -22,6 +22,14 @@ import {
 } from "./world/mushroom/index.js";
 import { TimeOfDayController } from "./world/TimeOfDayController.js";
 
+const MAX_RENDERER_PIXEL_RATIO = 1.25;
+const BLOOM_RESOLUTION_SCALE = 0.6;
+const WORLD_VIEW_RADIUS = 1;
+const WORLD_PRELOAD_RADIUS = 2;
+const SUN_SHADOW_MAP_SIZE = 512;
+const HORIZON_FOG_COLOR = "#d9ebfa";
+const HORIZON_FOG_DENSITY = 0.0052;
+
 const biomeNameEl = document.querySelector("#biome-name");
 const chunkCountEl = document.querySelector("#chunk-count");
 const fairyFlightPanelEl = document.querySelector("#fairy-flight-panel");
@@ -76,10 +84,18 @@ function setupFairyFlightPanel() {
   });
 }
 
+function getCappedPixelRatio() {
+  return Math.min(window.devicePixelRatio, MAX_RENDERER_PIXEL_RATIO);
+}
+
+function getBloomPixelRatio(renderer) {
+  return Math.max(0.5, renderer.getPixelRatio() * BLOOM_RESOLUTION_SCALE);
+}
+
 async function bootstrap() {
   setupFairyFlightPanel();
   const renderer = new THREE.WebGLRenderer({ antialias: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.25));
+  renderer.setPixelRatio(getCappedPixelRatio());
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -91,6 +107,7 @@ async function bootstrap() {
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color("#87ceeb");
+  scene.fog = new THREE.FogExp2(HORIZON_FOG_COLOR, HORIZON_FOG_DENSITY);
 
   const camera = new THREE.PerspectiveCamera(
     70,
@@ -107,7 +124,7 @@ async function bootstrap() {
 
   try {
     await Promise.all([
-      loadMedowAssets(medowAssets),
+      loadMedowAssets(medowAssets, renderer),
       loadMushroomAssets(mushroomAssets, renderer),
       trees.load()
     ]);
@@ -118,7 +135,8 @@ async function bootstrap() {
   const world = new ChunkManager(scene, {
     seed: 83473,
     chunkSize: 48,
-    viewRadius: 2,
+    viewRadius: WORLD_VIEW_RADIUS,
+    preloadRadius: WORLD_PRELOAD_RADIUS,
     maxObjectsPerChunk: 90,
     assetContext: {
       medow: medowAssets,
@@ -137,7 +155,7 @@ async function bootstrap() {
   const sunLight = new THREE.DirectionalLight("#fff6d2", 1.8);
   sunLight.position.set(18, 30, 12);
   sunLight.castShadow = true;
-  sunLight.shadow.mapSize.set(1024, 1024);
+  sunLight.shadow.mapSize.set(SUN_SHADOW_MAP_SIZE, SUN_SHADOW_MAP_SIZE);
   sunLight.shadow.camera.near = 0.5;
   sunLight.shadow.camera.far = 120;
   sunLight.shadow.camera.left = -60;
@@ -174,7 +192,7 @@ async function bootstrap() {
   bloomComposer.renderToScreen = false;
   bloomComposer.addPass(bloomRenderPass);
   bloomComposer.addPass(bloomPass);
-  bloomComposer.setPixelRatio(renderer.getPixelRatio());
+  bloomComposer.setPixelRatio(getBloomPixelRatio(renderer));
   bloomComposer.setSize(window.innerWidth, window.innerHeight);
 
   const finalComposer = new EffectComposer(renderer);
@@ -234,7 +252,7 @@ async function bootstrap() {
       focusHeight + 1.4,
       camera.position.y
     );
-    timeOfDay.update(delta, camera.position, focusHeight);
+    //timeOfDay.update(delta, camera.position, focusHeight);
     world.update(camera.position, elapsedTime);
     updateMedowAssets(medowAssets, elapsedTime);
     updateBiomeReadout();
@@ -260,9 +278,9 @@ async function bootstrap() {
   window.addEventListener("resize", () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(getCappedPixelRatio());
     renderer.setSize(window.innerWidth, window.innerHeight);
-    bloomComposer.setPixelRatio(renderer.getPixelRatio());
+    bloomComposer.setPixelRatio(getBloomPixelRatio(renderer));
     finalComposer.setPixelRatio(renderer.getPixelRatio());
     bloomComposer.setSize(window.innerWidth, window.innerHeight);
     finalComposer.setSize(window.innerWidth, window.innerHeight);

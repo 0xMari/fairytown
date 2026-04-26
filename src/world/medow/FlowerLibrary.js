@@ -82,7 +82,7 @@ export class FlowerLibrary {
         this.batchBuilders.set(flowerKey, (placements) =>
           buildInstancedGroupFromDescriptors(this.descriptors.get(flowerKey), placements, {
             castShadow: false,
-            receiveShadow: true
+            receiveShadow: false
           })
         );
       })

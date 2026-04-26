@@ -14,6 +14,7 @@ const BIOME_EDGE_SAMPLE_DIRECTIONS = [
   [-0.7071, 0.7071],
   [-0.7071, -0.7071]
 ];
+const MOSS_PATCH_SIZE = 12;
 
 const dirtFloorMaterial = new THREE.MeshStandardMaterial({
   color: "#ffffff",
@@ -61,13 +62,9 @@ const pathMaterial = new THREE.MeshStandardMaterial({
   metalness: 0
 });
 
-const twigMaterial = new THREE.MeshStandardMaterial({
-  color: "#4f3b25",
-  roughness: 1
-});
+
 
 const mossGeometry = new THREE.SphereGeometry(1, 20, 18);
-const twigGeometry = new THREE.CylinderGeometry(0.012, 0.018, 1, 5);
 
 function randomBetween(rng, min, max) {
   return min + (max - min) * rng();
@@ -76,6 +73,12 @@ function randomBetween(rng, min, max) {
 function smoothstep01(min, max, value) {
   const t = THREE.MathUtils.clamp((value - min) / (max - min), 0, 1);
   return t * t * (3 - 2 * t);
+}
+
+function getPatchKey(localX, localZ, patchOffset, patchSize) {
+  const patchX = Math.floor((localX + patchOffset) / patchSize);
+  const patchZ = Math.floor((localZ + patchOffset) / patchSize);
+  return `${patchX},${patchZ}`;
 }
 
 function configureTexture(texture, repeatX, repeatY, colorSpace, anisotropy = 1) {
@@ -372,12 +375,16 @@ function createMossTransforms({
   chunkX,
   chunkZ,
   seed,
+  lodFactor = 1,
   terrain,
   biomeKey,
   getBiomeKeyAtPosition,
   getBiomeWeightsAtPosition
 }) {
   const transforms = [];
+  const lodDensity = THREE.MathUtils.clamp(lodFactor, 0.35, 1);
+  const lodStepScale = THREE.MathUtils.lerp(1.55, 1, lodDensity);
+  const lodPresenceScale = THREE.MathUtils.lerp(0.45, 1, lodDensity);
   const layers = [
     {
       step: 1.55,
@@ -400,12 +407,14 @@ function createMossTransforms({
   ];
 
   for (const layer of layers) {
-    for (let x = -halfSize - 1; x <= halfSize + 1; x += layer.step) {
-      for (let z = -halfSize - 1; z <= halfSize + 1; z += layer.step) {
+    const lodStep = layer.step * lodStepScale;
+
+    for (let x = -halfSize - 1; x <= halfSize + 1; x += lodStep) {
+      for (let z = -halfSize - 1; z <= halfSize + 1; z += lodStep) {
         const jitteredX =
-          x + randomBetween(rng, -layer.step * layer.jitter, layer.step * layer.jitter);
+          x + randomBetween(rng, -lodStep * layer.jitter, lodStep * layer.jitter);
         const jitteredZ =
-          z + randomBetween(rng, -layer.step * layer.jitter, layer.step * layer.jitter);
+          z + randomBetween(rng, -lodStep * layer.jitter, lodStep * layer.jitter);
         const path = getPathMetrics(jitteredX, jitteredZ, chunkX, chunkZ, chunkSize);
 
         if (Math.abs(jitteredX) > halfSize + 1.5 || Math.abs(jitteredZ) > halfSize + 1.5) {
@@ -448,7 +457,8 @@ function createMossTransforms({
         const presence =
           biomePresence *
           THREE.MathUtils.smoothstep(patchField, layer.threshold, 0.92) *
-          THREE.MathUtils.lerp(0.72, 1.18, variationField);
+          THREE.MathUtils.lerp(0.72, 1.18, variationField) *
+          lodPresenceScale;
 
         if (presence < layer.minPresence || rng() > presence) {
           continue;
@@ -488,15 +498,25 @@ function createMossTransforms({
   return transforms;
 }
 
-function addMossInstancedMeshes(group, transforms) {
+function addMossInstancedMeshes(group, transforms, halfSize) {
   const buckets = {
-    deep: { material: mossDeepMaterial, transforms: [] },
-    mid: { material: mossPuffMaterial, transforms: [] },
-    highlight: { material: mossHighlightMaterial, transforms: [] }
+    deep: { material: mossDeepMaterial, patches: new Map() },
+    mid: { material: mossPuffMaterial, patches: new Map() },
+    highlight: { material: mossHighlightMaterial, patches: new Map() }
   };
+  const patchOffset = halfSize + 1.5;
 
   transforms.forEach((transform) => {
-    buckets[transform.bucket].transforms.push(transform);
+    const bucket = buckets[transform.bucket];
+    const patchKey = getPatchKey(transform.x, transform.z, patchOffset, MOSS_PATCH_SIZE);
+    const patchTransforms = bucket.patches.get(patchKey);
+
+    if (patchTransforms) {
+      patchTransforms.push(transform);
+      return;
+    }
+
+    bucket.patches.set(patchKey, [transform]);
   });
 
   const matrix = new THREE.Matrix4();
@@ -504,30 +524,35 @@ function addMossInstancedMeshes(group, transforms) {
   const euler = new THREE.Euler();
 
   for (const bucket of Object.values(buckets)) {
-    if (bucket.transforms.length === 0) {
-      continue;
-    }
-
-    const mesh = new THREE.InstancedMesh(mossGeometry, bucket.material, bucket.transforms.length);
-
-    bucket.transforms.forEach((transform, index) => {
-      euler.set(transform.tiltX, transform.rotationY, transform.tiltZ);
-      quaternion.setFromEuler(euler);
-      matrix.compose(
-        new THREE.Vector3(transform.x, transform.y, transform.z),
-        quaternion,
-        transform.scale
+    for (const patchTransforms of bucket.patches.values()) {
+      const mesh = new THREE.InstancedMesh(
+        mossGeometry,
+        bucket.material,
+        patchTransforms.length
       );
-      mesh.setMatrixAt(index, matrix);
-    });
 
-    mesh.instanceMatrix.needsUpdate = true;
-    mesh.receiveShadow = true;
-    mesh.castShadow = false;
-    mesh.frustumCulled = false;
-    group.add(mesh);
+      patchTransforms.forEach((transform, index) => {
+        euler.set(transform.tiltX, transform.rotationY, transform.tiltZ);
+        quaternion.setFromEuler(euler);
+        matrix.compose(
+          new THREE.Vector3(transform.x, transform.y, transform.z),
+          quaternion,
+          transform.scale
+        );
+        mesh.setMatrixAt(index, matrix);
+      });
+
+      mesh.instanceMatrix.needsUpdate = true;
+      mesh.receiveShadow = false;
+      mesh.castShadow = false;
+      mesh.computeBoundingBox();
+      mesh.computeBoundingSphere();
+      group.add(mesh);
+    }
   }
 }
+
+
 
 function createPathTrail(group, rng, chunkSize, chunkX, chunkZ, terrain) {
   const halfSize = chunkSize * 0.5;
@@ -612,6 +637,7 @@ export class MossLibrary {
     chunkZ,
     seed,
     rng,
+    lodFactor = 1,
     terrain,
     biomeKey,
     getBiomeKeyAtPosition,
@@ -667,65 +693,13 @@ export class MossLibrary {
       chunkX,
       chunkZ,
       seed,
+      lodFactor,
       terrain,
       biomeKey,
       getBiomeKeyAtPosition,
       getBiomeWeightsAtPosition
     });
-    addMossInstancedMeshes(group, mossTransforms);
-
-    const twigCount = Math.floor(randomBetween(rng, 12, 24));
-    const twigTransforms = [];
-    const twigEuler = new THREE.Euler();
-
-    for (let index = 0; index < twigCount; index += 1) {
-      const x = randomBetween(rng, -halfSize, halfSize);
-      const z = randomBetween(rng, -halfSize, halfSize);
-      const path = getPathMetrics(x, z, chunkX, chunkZ, chunkSize);
-
-      if (path.distance < path.halfWidth + 0.25) {
-        continue;
-      }
-
-      twigTransforms.push({
-        x,
-        z,
-        y: getLocalTerrainHeight(terrain, x, z) + 0.035,
-        rotation: [
-          randomBetween(rng, -0.45, -0.08),
-          rng() * Math.PI * 2,
-          randomBetween(rng, -0.4, 0.4)
-        ],
-        scale: [
-          randomBetween(rng, 0.6, 1.35),
-          randomBetween(rng, 0.5, 1.1),
-          randomBetween(rng, 0.6, 1.35)
-        ]
-      });
-    }
-
-    if (twigTransforms.length > 0) {
-      const twigMesh = new THREE.InstancedMesh(twigGeometry, twigMaterial, twigTransforms.length);
-      const twigMatrix = new THREE.Matrix4();
-      const twigQuaternion = new THREE.Quaternion();
-
-      twigTransforms.forEach((transform, index) => {
-        twigEuler.set(transform.rotation[0], transform.rotation[1], transform.rotation[2]);
-        twigQuaternion.setFromEuler(twigEuler);
-        twigMatrix.compose(
-          new THREE.Vector3(transform.x, transform.y, transform.z),
-          twigQuaternion,
-          new THREE.Vector3(transform.scale[0], transform.scale[1], transform.scale[2])
-        );
-        twigMesh.setMatrixAt(index, twigMatrix);
-      });
-
-      twigMesh.instanceMatrix.needsUpdate = true;
-      twigMesh.receiveShadow = true;
-      twigMesh.castShadow = false;
-      twigMesh.frustumCulled = false;
-      group.add(twigMesh);
-    }
+    addMossInstancedMeshes(group, mossTransforms, halfSize);
 
     return group;
   }

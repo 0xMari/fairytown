@@ -92,7 +92,7 @@ export class BushLibrary {
         this.batchBuilders.set(bushKey, (placements) =>
           buildInstancedGroupFromDescriptors(this.descriptors.get(bushKey), placements, {
             castShadow: false,
-            receiveShadow: true
+            receiveShadow: false
           })
         );
       })

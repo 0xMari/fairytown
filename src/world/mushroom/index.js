@@ -33,7 +33,8 @@ export const MUSHROOM_BIOME = {
     getBiomeWeightsAtPosition,
     getBlendedGroundColorAtPosition,
     terrain,
-    instanceCollector
+    instanceCollector,
+    lodFactor
   }) {
     const mushroomAssets = assetContext?.mushroom;
 
@@ -46,6 +47,7 @@ export const MUSHROOM_BIOME = {
           seed,
           rng,
           terrain,
+          lodFactor,
           biomeKey,
           getBiomeKeyAtPosition,
           getBiomeWeightsAtPosition,
@@ -66,7 +68,8 @@ export const MUSHROOM_BIOME = {
       palette,
       terrain,
       getBiomeWeightsAtPosition,
-      instanceCollector
+      instanceCollector,
+      lodFactor
     });
   }
 };
