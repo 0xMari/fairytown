@@ -14,6 +14,31 @@
     <script type="module" src="/src/main.js"></script>
   </head>
   <body>
+    <div class="entry-screen" id="entry-screen">
+      <div class="entry-screen__card">
+        <p class="entry-screen__eyebrow">Fairy Flight</p>
+        <h1 class="entry-screen__title">Fairytown</h1>
+        <p class="entry-screen__body">
+          Drift through the procedural world and explore the biomes from a fairy's point of view.
+        </p>
+        <div class="entry-screen__controls" aria-label="Navigation commands">
+          <p><span>Move</span> WASD</p>
+          <p><span>Rise</span> Space</p>
+          <p><span>Drop</span> C</p>
+          <p><span>Boost</span> Shift</p>
+          <p><span>Look</span> Mouse</p>
+        </div>
+        <p class="entry-screen__status" id="entry-status">Loading world... 0%</p>
+        <button
+          type="button"
+          class="entry-screen__button"
+          id="enter-world-button"
+          disabled
+        >
+          Enter
+        </button>
+      </div>
+    </div>
     <div class="hud">
       <!-- <div class="hud__card" id="fairy-flight-panel">
         <div class="hud__card-header">
@@ -51,6 +76,6 @@
         <p id="chunk-count">Loaded chunks: 0</p>
       </div>
     </div>
-    <div class="crosshair" aria-hidden="true"></div>
+    <div class="crosshair is-hidden" id="crosshair" aria-hidden="true"></div>
   </body>
 </html>

@@ -36,6 +36,10 @@ const HORIZON_FOG_DENSITY = 0.0052;
 
 const biomeNameEl = document.querySelector("#biome-name");
 const chunkCountEl = document.querySelector("#chunk-count");
+const crosshairEl = document.querySelector("#crosshair");
+const entryScreenEl = document.querySelector("#entry-screen");
+const entryStatusEl = document.querySelector("#entry-status");
+const enterWorldButtonEl = document.querySelector("#enter-world-button");
 const fairyFlightPanelEl = document.querySelector("#fairy-flight-panel");
 const fairyFlightToggleEl = document.querySelector("#fairy-flight-toggle");
 
@@ -96,6 +100,54 @@ function getBloomPixelRatio(renderer) {
   return Math.max(0.5, renderer.getPixelRatio() * BLOOM_RESOLUTION_SCALE);
 }
 
+function createWorldEntryController(renderer) {
+  const state = {
+    hasEntered: false
+  };
+
+  function setLoadingProgress(loaded, total) {
+    if (!entryStatusEl) {
+      return;
+    }
+
+    const safeTotal = Math.max(total, 1);
+    const percentage = Math.min(100, Math.round((loaded / safeTotal) * 100));
+    entryStatusEl.textContent = `Loading world... ${percentage}%`;
+  }
+
+  function setReady(isReady) {
+    if (!enterWorldButtonEl || !entryStatusEl) {
+      return;
+    }
+
+    enterWorldButtonEl.disabled = !isReady;
+    entryStatusEl.textContent = isReady
+      ? "World ready. 100%. Click Enter to begin."
+      : "Loading world... 0%";
+  }
+
+  function enterWorld() {
+    if (!entryScreenEl || !enterWorldButtonEl || state.hasEntered || enterWorldButtonEl.disabled) {
+      return;
+    }
+
+    state.hasEntered = true;
+    entryScreenEl.classList.add("is-hidden");
+    crosshairEl?.classList.remove("is-hidden");
+    renderer.domElement.requestPointerLock?.();
+  }
+
+  enterWorldButtonEl?.addEventListener("click", enterWorld);
+
+  return {
+    get hasEntered() {
+      return state.hasEntered;
+    },
+    setLoadingProgress,
+    setReady
+  };
+}
+
 async function bootstrap() {
   setupFairyFlightPanel();
   const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -108,6 +160,20 @@ async function bootstrap() {
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   document.body.append(renderer.domElement);
+  const worldEntry = createWorldEntryController(renderer);
+  const loadingManager = THREE.DefaultLoadingManager;
+
+  loadingManager.onStart = (_url, itemsLoaded, itemsTotal) => {
+    worldEntry.setLoadingProgress(itemsLoaded, itemsTotal);
+  };
+
+  loadingManager.onProgress = (_url, itemsLoaded, itemsTotal) => {
+    worldEntry.setLoadingProgress(itemsLoaded, itemsTotal);
+  };
+
+  loadingManager.onLoad = () => {
+    worldEntry.setLoadingProgress(1, 1);
+  };
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color("#87ceeb");
@@ -136,6 +202,8 @@ async function bootstrap() {
     ]);
   } catch (error) {
     console.error("World assets failed to load.", error);
+  } finally {
+    worldEntry.setReady(true);
   }
 
   const world = new ChunkManager(scene, {
@@ -253,7 +321,9 @@ async function bootstrap() {
     const elapsedTime = clock.elapsedTime;
 
     renderer.info.reset();
-    controls.update(delta);
+    if (worldEntry.hasEntered) {
+      controls.update(delta);
+    }
     const focusHeight = world.getSurfaceHeightAtPosition(camera.position.x, camera.position.z);
     camera.position.y = Math.max(
       focusHeight + 1,
