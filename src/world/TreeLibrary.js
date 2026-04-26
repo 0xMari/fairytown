@@ -39,13 +39,27 @@ function normalizeTree(scene, targetHeight) {
 
   const bounds = new THREE.Box3().setFromObject(content);
   const size = bounds.getSize(new THREE.Vector3());
-  const center = bounds.getCenter(new THREE.Vector3());
   const scaleFactor = size.y > 0 ? targetHeight / size.y : 1;
 
-  content.position.x -= center.x;
-  content.position.y -= bounds.min.y;
-  content.position.z -= center.z;
   content.scale.multiplyScalar(scaleFactor);
+  content.rotation.x = 0;
+  content.rotation.z = 0;
+  content.updateMatrixWorld(true);
+
+  const scaledBounds = new THREE.Box3().setFromObject(content);
+  const scaledCenter = scaledBounds.getCenter(new THREE.Vector3());
+
+  content.position.x -= scaledCenter.x;
+  content.position.y -= scaledBounds.min.y;
+  content.position.z -= scaledCenter.z;
+  content.updateMatrixWorld(true);
+
+  const groundedBounds = new THREE.Box3().setFromObject(content);
+
+  if (Math.abs(groundedBounds.min.y) > 1e-4) {
+    content.position.y -= groundedBounds.min.y;
+    content.updateMatrixWorld(true);
+  }
 
   template.add(content);
   setMeshShadows(template);

@@ -291,9 +291,23 @@ export class ChunkManager {
   }
 
   disposeChunk(key, chunk) {
+    if (chunk.terrainMesh?.geometry) {
+      chunk.terrainMesh.geometry.dispose();
+    }
+
     this.scene.remove(chunk.group);
     this.activeChunks.delete(key);
     this.updaters = this.updaters.filter((entry) => entry.chunkKey !== key);
+  }
+
+  rebuildAllChunks() {
+    const activeChunkEntries = Array.from(this.activeChunks.entries());
+
+    this.generationQueue.length = 0;
+
+    for (const [key, chunk] of activeChunkEntries) {
+      this.disposeChunk(key, chunk);
+    }
   }
 
   createChunkRecord(chunkX, chunkZ) {
@@ -403,6 +417,7 @@ export class ChunkManager {
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
     chunk.content.add(ground);
+    chunk.terrainMesh = ground;
   }
 
   buildChunkAdditions(chunk) {
