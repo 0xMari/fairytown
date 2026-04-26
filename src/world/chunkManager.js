@@ -355,6 +355,7 @@ export class ChunkManager {
     const groundColors = new Float32Array(terrainPositions.count * 3);
     const meadowWeights = new Float32Array(terrainPositions.count);
     const mushroomWeights = new Float32Array(terrainPositions.count);
+    const crystalWeights = new Float32Array(terrainPositions.count);
     const groundColor = new THREE.Color();
 
     for (let index = 0; index < terrainPositions.count; index += 1) {
@@ -379,11 +380,13 @@ export class ChunkManager {
       groundColors[index * 3 + 2] = groundColor.b;
       meadowWeights[index] = biomeWeights.meadow ?? 0;
       mushroomWeights[index] = biomeWeights.mushrooms ?? 0;
+      crystalWeights[index] = biomeWeights.crystal ?? 0;
     }
 
     terrainGeometry.setAttribute("color", new THREE.BufferAttribute(groundColors, 3));
     terrainGeometry.setAttribute("meadowWeight", new THREE.BufferAttribute(meadowWeights, 1));
     terrainGeometry.setAttribute("mushroomWeight", new THREE.BufferAttribute(mushroomWeights, 1));
+    terrainGeometry.setAttribute("crystalWeight", new THREE.BufferAttribute(crystalWeights, 1));
 
     const terrainMaterial =
       this.assetContext?.medow?.ground?.getTerrainMaterial?.() ??

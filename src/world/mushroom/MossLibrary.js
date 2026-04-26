@@ -2,7 +2,6 @@ import * as THREE from "three";
 import { fbm2D } from "../noise.js";
 
 const MOSS_TEXTURE_URL = "/textures/texture-moss.jpg";
-const PATH_PATCH_GEOMETRY = new THREE.CircleGeometry(1, 18);
 const BIOME_EDGE_SAMPLE_RADII = [3.5, 7, 10.5, 14];
 const BIOME_EDGE_SAMPLE_DIRECTIONS = [
   [1, 0],
@@ -55,14 +54,6 @@ const mossHighlightMaterial = new THREE.MeshStandardMaterial({
   emissive: "#34441d",
   emissiveIntensity: 0.03
 });
-
-const pathMaterial = new THREE.MeshStandardMaterial({
-  color: "#2a1f16",
-  roughness: 1,
-  metalness: 0
-});
-
-
 
 const mossGeometry = new THREE.SphereGeometry(1, 20, 18);
 
@@ -227,27 +218,6 @@ function sampleMossHeightField(worldX, worldZ, seed) {
     lacunarity: 2.2,
     gain: 0.48
   });
-}
-
-export function getPathCenterZ(worldX) {
-  return Math.sin(worldX * 0.045) * 8 + Math.cos(worldX * 0.018) * 3.5;
-}
-
-export function getPathHalfWidth(worldX) {
-  return 2.2 + (Math.sin(worldX * 0.022) * 0.5 + 0.5) * 0.9;
-}
-
-export function getPathMetrics(localX, localZ, chunkX, chunkZ, chunkSize) {
-  const worldX = chunkX * chunkSize + localX;
-  const worldZ = chunkZ * chunkSize + localZ;
-  const centerZ = getPathCenterZ(worldX);
-  const halfWidth = getPathHalfWidth(worldX);
-
-  return {
-    distance: Math.abs(worldZ - centerZ),
-    halfWidth,
-    worldX
-  };
 }
 
 function getBiomeInteriorFactor(
@@ -415,13 +385,8 @@ function createMossTransforms({
           x + randomBetween(rng, -lodStep * layer.jitter, lodStep * layer.jitter);
         const jitteredZ =
           z + randomBetween(rng, -lodStep * layer.jitter, lodStep * layer.jitter);
-        const path = getPathMetrics(jitteredX, jitteredZ, chunkX, chunkZ, chunkSize);
 
         if (Math.abs(jitteredX) > halfSize + 1.5 || Math.abs(jitteredZ) > halfSize + 1.5) {
-          continue;
-        }
-
-        if (path.distance < path.halfWidth + 0.45) {
           continue;
         }
 
@@ -552,38 +517,6 @@ function addMossInstancedMeshes(group, transforms, halfSize) {
   }
 }
 
-
-
-function createPathTrail(group, rng, chunkSize, chunkX, chunkZ, terrain) {
-  const halfSize = chunkSize * 0.5;
-  const step = 1.75;
-
-  for (let localX = -halfSize - 2; localX <= halfSize + 2; localX += step) {
-    const worldX = chunkX * chunkSize + localX;
-    const centerZ = getPathCenterZ(worldX);
-    const localZ = centerZ - chunkZ * chunkSize;
-
-    if (localZ < -halfSize - 4 || localZ > halfSize + 4) {
-      continue;
-    }
-
-    const patch = new THREE.Mesh(PATH_PATCH_GEOMETRY, pathMaterial);
-    patch.rotation.x = -Math.PI / 2;
-    patch.rotation.z = randomBetween(rng, -0.18, 0.18);
-    const patchX = localX + randomBetween(rng, -0.15, 0.15);
-    const patchZ = localZ + randomBetween(rng, -0.28, 0.28);
-    const terrainHeight = getLocalTerrainHeight(terrain, patchX, patchZ);
-    patch.position.set(patchX, terrainHeight + 0.03, patchZ);
-    patch.scale.set(
-      getPathHalfWidth(worldX) * randomBetween(rng, 1.05, 1.35),
-      step * randomBetween(rng, 1.2, 1.45),
-      1
-    );
-    patch.receiveShadow = true;
-    group.add(patch);
-  }
-}
-
 export class MossLibrary {
   constructor() {
     this.textureLoader = new THREE.TextureLoader();
@@ -647,44 +580,9 @@ export class MossLibrary {
     const group = new THREE.Group();
     const halfSize = chunkSize * 0.5;
 
-    const dirtGeometry = tintSurfaceGeometry(createTerrainSurfaceGeometry(terrain, chunkSize, 0.008), {
-      chunkX,
-      chunkZ,
-      chunkSize,
-      seed,
-      biomeKey,
-      getBiomeWeightsAtPosition,
-      getBlendedGroundColorAtPosition,
-      tintColor: new THREE.Color("#16120d"),
-      threshold: [0.2, 0.8],
-      intensity: 0.95
-    });
-    const dirt = new THREE.Mesh(dirtGeometry, dirtFloorMaterial);
-    dirt.rotation.x = -Math.PI / 2;
-    dirt.receiveShadow = true;
-    group.add(dirt);
-
-    const blanketGeometry = tintSurfaceGeometry(
-      createTerrainSurfaceGeometry(terrain, chunkSize, 0.02),
-      {
-        chunkX,
-        chunkZ,
-        chunkSize,
-        seed,
-        biomeKey,
-        getBiomeWeightsAtPosition,
-        getBlendedGroundColorAtPosition,
-        tintColor: new THREE.Color("#6b883a"),
-        threshold: [0.26, 0.86],
-        intensity: 0.88
-      }
-    );
-    const blanket = new THREE.Mesh(blanketGeometry, mossBlanketMaterial);
-    blanket.rotation.x = -Math.PI / 2;
-    blanket.receiveShadow = true;
-    group.add(blanket);
-
-    createPathTrail(group, rng, chunkSize, chunkX, chunkZ, terrain);
+    // The shared biome terrain material now provides the mushroom ground base.
+    // Leave the moss puffs as local detail, but do not stack the old
+    // dirt/blanket surface overlays on top of the terrain anymore.
 
     const mossTransforms = createMossTransforms({
       rng,

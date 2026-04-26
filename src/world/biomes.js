@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { fbm2D } from "./noise.js";
+import { CRYSTAL_BIOME } from "./crystal/index.js";
 import { MEDOW_BIOME } from "./medow/index.js";
 import { MUSHROOM_BIOME } from "./mushroom/index.js";
 import { VILLAGE_BIOME } from "./village/index.js";
@@ -8,27 +9,11 @@ export const BIOMES = {
   meadow: MEDOW_BIOME,
   village: VILLAGE_BIOME,
   mushrooms: MUSHROOM_BIOME,
-  crystal: {
-    name: "Crystal Glade",
-    groundColor: "#6ec5b8",
-    groundTint: "#7de1d3",
-    fogColor: "#eddffd",
-    fogDensity: 0.003,
-    skyColor: "#cfe7ff",
-    accentColor: "#b488ff",
-    assetMix: {
-      silverTree: { count: [3, 5], scale: [0.85, 1.25] },
-      crystalCluster: { count: [7, 10], scale: [0.8, 1.5] },
-      glowBloom: { count: [8, 14], scale: [0.8, 1.15] },
-      rockCluster: { count: [2, 4], scale: [0.75, 1.1] },
-      lantern: { count: [1, 2], scale: [0.9, 1.15] },
-      wispCluster: { count: [2, 3], scale: [1, 1.3] }
-    }
-  }
+  crystal: CRYSTAL_BIOME
 };
 
 export const BIOME_SEQUENCE = ["meadow", "mushrooms", "crystal"];
-const BIOME_THRESHOLDS = [0.48, 0.86];
+const BIOME_THRESHOLDS = [1 / 3, 2 / 3];
 const BIOME_BLEND_WIDTH = 0.1;
 
 function getBiomeBlendValue(x, z, seed) {

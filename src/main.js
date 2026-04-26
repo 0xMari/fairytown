@@ -9,6 +9,10 @@ import { SELECTIVE_BLOOM_LAYER } from "./rendering/bloom.js";
 import { PerformanceController } from "./rendering/PerformanceController.js";
 import { BIOMES } from "./world/biomes.js";
 import { ChunkManager } from "./world/chunkManager.js";
+import {
+  createCrystalAssetContext,
+  loadCrystalAssets
+} from "./world/crystal/index.js";
 import { FairyControls } from "./world/FairyControls.js";
 import { TreeLibrary } from "./world/TreeLibrary.js";
 import {
@@ -118,12 +122,14 @@ async function bootstrap() {
   camera.position.set(0, 1, 12);
 
   const controls = new FairyControls(camera, renderer.domElement);
+  const crystalAssets = createCrystalAssetContext();
   const medowAssets = createMedowAssetContext();
   const mushroomAssets = createMushroomAssetContext();
   const trees = new TreeLibrary();
 
   try {
     await Promise.all([
+      loadCrystalAssets(crystalAssets),
       loadMedowAssets(medowAssets, renderer),
       loadMushroomAssets(mushroomAssets, renderer),
       trees.load()
@@ -139,6 +145,7 @@ async function bootstrap() {
     preloadRadius: WORLD_PRELOAD_RADIUS,
     maxObjectsPerChunk: 90,
     assetContext: {
+      crystal: crystalAssets,
       medow: medowAssets,
       mushroom: mushroomAssets,
       trees

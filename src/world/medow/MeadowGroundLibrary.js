@@ -1,5 +1,9 @@
 import * as THREE from "three";
 import { EXRLoader } from "three/addons/loaders/EXRLoader.js";
+import {
+  CRYSTAL_TERRAIN_SETTINGS,
+  CRYSTAL_TERRAIN_TEXTURES
+} from "../crystal/CrystalTerrainConfig.js";
 
 const MEADOW_TERRAIN_DIFFUSE_URL = "/textures/aerial_rocks/aerial_rocks_02_diff_4k.jpg";
 const MEADOW_TERRAIN_ROUGHNESS_URL = "/textures/aerial_rocks/aerial_rocks_02_rough_4k.jpg";
@@ -51,6 +55,10 @@ export class MeadowGroundLibrary {
     this.mushroomRoughnessTexture = null;
     this.mushroomDisplacementTexture = null;
     this.mushroomNormalTexture = null;
+    this.crystalDiffuseTexture = null;
+    this.crystalRoughnessTexture = null;
+    this.crystalDisplacementTexture = null;
+    this.crystalNormalTexture = null;
     this.terrainMaterial = null;
   }
 
@@ -67,7 +75,11 @@ export class MeadowGroundLibrary {
       this.textureLoader.loadAsync(MUSHROOM_TERRAIN_DIFFUSE_URL),
       this.exrLoader.loadAsync(MUSHROOM_TERRAIN_ROUGHNESS_URL),
       this.textureLoader.loadAsync(MUSHROOM_TERRAIN_DISPLACEMENT_URL),
-      this.exrLoader.loadAsync(MUSHROOM_TERRAIN_NORMAL_URL)
+      this.exrLoader.loadAsync(MUSHROOM_TERRAIN_NORMAL_URL),
+      this.textureLoader.loadAsync(CRYSTAL_TERRAIN_TEXTURES.diffuseUrl),
+      this.exrLoader.loadAsync(CRYSTAL_TERRAIN_TEXTURES.roughnessUrl),
+      this.textureLoader.loadAsync(CRYSTAL_TERRAIN_TEXTURES.displacementUrl),
+      this.exrLoader.loadAsync(CRYSTAL_TERRAIN_TEXTURES.normalUrl)
     ]).then(([
       diffuseTexture,
       roughnessTexture,
@@ -76,7 +88,11 @@ export class MeadowGroundLibrary {
       mushroomDiffuseTexture,
       mushroomRoughnessTexture,
       mushroomDisplacementTexture,
-      mushroomNormalTexture
+      mushroomNormalTexture,
+      crystalDiffuseTexture,
+      crystalRoughnessTexture,
+      crystalDisplacementTexture,
+      crystalNormalTexture
     ]) => {
         const anisotropy = renderer?.capabilities?.getMaxAnisotropy?.() ?? 1;
         this.diffuseTexture = configureColorTexture(diffuseTexture, anisotropy);
@@ -90,6 +106,10 @@ export class MeadowGroundLibrary {
           anisotropy
         );
         this.mushroomNormalTexture = configureExrTexture(mushroomNormalTexture);
+        this.crystalDiffuseTexture = configureColorTexture(crystalDiffuseTexture, anisotropy);
+        this.crystalRoughnessTexture = configureExrTexture(crystalRoughnessTexture);
+        this.crystalDisplacementTexture = configureDataTexture(crystalDisplacementTexture, anisotropy);
+        this.crystalNormalTexture = configureExrTexture(crystalNormalTexture);
       });
 
     return this.loadPromise;
@@ -104,7 +124,11 @@ export class MeadowGroundLibrary {
       !this.mushroomDiffuseTexture ||
       !this.mushroomRoughnessTexture ||
       !this.mushroomDisplacementTexture ||
-      !this.mushroomNormalTexture
+      !this.mushroomNormalTexture ||
+      !this.crystalDiffuseTexture ||
+      !this.crystalRoughnessTexture ||
+      !this.crystalDisplacementTexture ||
+      !this.crystalNormalTexture
     ) {
       return null;
     }
@@ -135,6 +159,19 @@ export class MeadowGroundLibrary {
       shader.uniforms.mushroomNormalScale = { value: new THREE.Vector2(0.32, 0.32) };
       shader.uniforms.mushroomDisplacementScale = { value: 0.075 };
       shader.uniforms.mushroomDisplacementBias = { value: -0.02 };
+      shader.uniforms.crystalDiffuseMap = { value: this.crystalDiffuseTexture };
+      shader.uniforms.crystalRoughnessMap = { value: this.crystalRoughnessTexture };
+      shader.uniforms.crystalDisplacementMap = { value: this.crystalDisplacementTexture };
+      shader.uniforms.crystalNormalMap = { value: this.crystalNormalTexture };
+      shader.uniforms.crystalNormalScale = {
+        value: new THREE.Vector2(...CRYSTAL_TERRAIN_SETTINGS.normalScale)
+      };
+      shader.uniforms.crystalDisplacementScale = {
+        value: CRYSTAL_TERRAIN_SETTINGS.displacementScale
+      };
+      shader.uniforms.crystalDisplacementBias = {
+        value: CRYSTAL_TERRAIN_SETTINGS.displacementBias
+      };
 
       shader.vertexShader = shader.vertexShader
         .replace(
@@ -142,17 +179,27 @@ export class MeadowGroundLibrary {
           `#include <common>
 attribute float meadowWeight;
 attribute float mushroomWeight;
+attribute float crystalWeight;
 uniform sampler2D mushroomDisplacementMap;
 uniform float mushroomDisplacementScale;
 uniform float mushroomDisplacementBias;
+uniform sampler2D crystalDisplacementMap;
+uniform float crystalDisplacementScale;
+uniform float crystalDisplacementBias;
 varying float vMeadowWeight;
 varying float vMushroomWeight;`
+        )
+        .replace(
+          "varying float vMushroomWeight;",
+          `varying float vMushroomWeight;
+varying float vCrystalWeight;`
         )
         .replace(
           "#include <begin_vertex>",
           `#include <begin_vertex>
 vMeadowWeight = meadowWeight;
-vMushroomWeight = mushroomWeight;`
+vMushroomWeight = mushroomWeight;
+vCrystalWeight = crystalWeight;`
         )
         .replace(
           "#include <displacementmap_vertex>",
@@ -162,11 +209,15 @@ vMushroomWeight = mushroomWeight;`
   float mushroomDisplacement =
     texture2D(mushroomDisplacementMap, vDisplacementMapUv).x * mushroomDisplacementScale +
     mushroomDisplacementBias;
+  float crystalDisplacement =
+    texture2D(crystalDisplacementMap, vDisplacementMapUv).x * crystalDisplacementScale +
+    crystalDisplacementBias;
   transformed +=
     normalize(objectNormal) *
     (
       meadowDisplacement * clamp(vMeadowWeight, 0.0, 1.0) +
-      mushroomDisplacement * clamp(vMushroomWeight, 0.0, 1.0)
+      mushroomDisplacement * clamp(vMushroomWeight, 0.0, 1.0) +
+      crystalDisplacement * clamp(vCrystalWeight, 0.0, 1.0)
     );
 #endif`
         );
@@ -179,38 +230,63 @@ uniform sampler2D mushroomDiffuseMap;
 uniform sampler2D mushroomRoughnessMap;
 uniform sampler2D mushroomNormalMap;
 uniform vec2 mushroomNormalScale;
+uniform sampler2D crystalDiffuseMap;
+uniform sampler2D crystalRoughnessMap;
+uniform sampler2D crystalNormalMap;
+uniform vec2 crystalNormalScale;
 varying float vMeadowWeight;
 varying float vMushroomWeight;`
+        )
+        .replace(
+          "varying float vMushroomWeight;",
+          `varying float vMushroomWeight;
+varying float vCrystalWeight;`
         )
         .replace(
           "#include <map_fragment>",
           `#ifdef USE_MAP
   float biomeMapMeadowMix = clamp(vMeadowWeight, 0.0, 1.0);
   float biomeMapMushroomMix = clamp(vMushroomWeight, 0.0, 1.0);
-  float biomeMapTexturedMix = clamp(biomeMapMeadowMix + biomeMapMushroomMix, 0.0, 1.0);
+  float biomeMapCrystalMix = clamp(vCrystalWeight, 0.0, 1.0);
+  float biomeMapTexturedMix = clamp(
+    biomeMapMeadowMix + biomeMapMushroomMix + biomeMapCrystalMix,
+    0.0,
+    1.0
+  );
   float biomeMapTexturedDenominator = max(biomeMapTexturedMix, 0.0001);
   vec4 sampledDiffuseColor = texture2D(map, vMapUv);
   vec4 sampledMushroomDiffuseColor = texture2D(mushroomDiffuseMap, vMapUv);
+  vec4 sampledCrystalDiffuseColor = texture2D(crystalDiffuseMap, vMapUv);
   #ifdef DECODE_VIDEO_TEXTURE
     sampledDiffuseColor = sRGBTransferEOTF(sampledDiffuseColor);
     sampledMushroomDiffuseColor = sRGBTransferEOTF(sampledMushroomDiffuseColor);
+    sampledCrystalDiffuseColor = sRGBTransferEOTF(sampledCrystalDiffuseColor);
   #endif
-  vec3 biomeMapTexturedColor = mix(
-    sampledDiffuseColor.rgb,
-    sampledMushroomDiffuseColor.rgb,
-    biomeMapMushroomMix / biomeMapTexturedDenominator
-  );
+  vec3 biomeMapTexturedColor =
+    (
+      sampledDiffuseColor.rgb * biomeMapMeadowMix +
+      sampledMushroomDiffuseColor.rgb * biomeMapMushroomMix +
+      sampledCrystalDiffuseColor.rgb * biomeMapCrystalMix
+    ) / biomeMapTexturedDenominator;
   diffuseColor.rgb = mix(diffuseColor.rgb, biomeMapTexturedColor, biomeMapTexturedMix);
 #endif`
         )
         .replace(
           "#include <color_fragment>",
           `#if defined( USE_COLOR_ALPHA )
-  float biomeColorTexturedMix = clamp(vMeadowWeight + vMushroomWeight, 0.0, 1.0);
+  float biomeColorTexturedMix = clamp(
+    vMeadowWeight + vMushroomWeight + vCrystalWeight,
+    0.0,
+    1.0
+  );
   vec4 biomeBlendedVertexColor = mix(vColor, vec4(1.0), biomeColorTexturedMix);
   diffuseColor *= biomeBlendedVertexColor;
 #elif defined( USE_COLOR )
-  float biomeColorTexturedMix = clamp(vMeadowWeight + vMushroomWeight, 0.0, 1.0);
+  float biomeColorTexturedMix = clamp(
+    vMeadowWeight + vMushroomWeight + vCrystalWeight,
+    0.0,
+    1.0
+  );
   vec3 biomeBlendedVertexColor = mix(vColor, vec3(1.0), biomeColorTexturedMix);
   diffuseColor.rgb *= biomeBlendedVertexColor;
 #endif`
@@ -222,16 +298,23 @@ varying float vMushroomWeight;`
 #ifdef USE_ROUGHNESSMAP
   float biomeRoughnessMeadowMix = clamp(vMeadowWeight, 0.0, 1.0);
   float biomeRoughnessMushroomMix = clamp(vMushroomWeight, 0.0, 1.0);
+  float biomeRoughnessCrystalMix = clamp(vCrystalWeight, 0.0, 1.0);
   float biomeRoughnessTexturedMix =
-    clamp(biomeRoughnessMeadowMix + biomeRoughnessMushroomMix, 0.0, 1.0);
+    clamp(
+      biomeRoughnessMeadowMix + biomeRoughnessMushroomMix + biomeRoughnessCrystalMix,
+      0.0,
+      1.0
+    );
   float biomeRoughnessTexturedDenominator = max(biomeRoughnessTexturedMix, 0.0001);
   vec4 texelRoughness = texture2D(roughnessMap, vRoughnessMapUv);
   vec4 texelMushroomRoughness = texture2D(mushroomRoughnessMap, vRoughnessMapUv);
-  float biomeBlendedRoughness = mix(
-    texelRoughness.g,
-    texelMushroomRoughness.g,
-    biomeRoughnessMushroomMix / biomeRoughnessTexturedDenominator
-  );
+  vec4 texelCrystalRoughness = texture2D(crystalRoughnessMap, vRoughnessMapUv);
+  float biomeBlendedRoughness =
+    (
+      texelRoughness.g * biomeRoughnessMeadowMix +
+      texelMushroomRoughness.g * biomeRoughnessMushroomMix +
+      texelCrystalRoughness.g * biomeRoughnessCrystalMix
+    ) / biomeRoughnessTexturedDenominator;
   roughnessFactor *= mix(1.0, biomeBlendedRoughness, biomeRoughnessTexturedMix);
 #endif`
         )
@@ -240,16 +323,25 @@ varying float vMushroomWeight;`
           `#ifdef USE_NORMALMAP_OBJECTSPACE
   float biomeObjectNormalMeadowMix = clamp(vMeadowWeight, 0.0, 1.0);
   float biomeObjectNormalMushroomMix = clamp(vMushroomWeight, 0.0, 1.0);
+  float biomeObjectNormalCrystalMix = clamp(vCrystalWeight, 0.0, 1.0);
   float biomeObjectNormalTexturedMix =
-    clamp(biomeObjectNormalMeadowMix + biomeObjectNormalMushroomMix, 0.0, 1.0);
+    clamp(
+      biomeObjectNormalMeadowMix +
+      biomeObjectNormalMushroomMix +
+      biomeObjectNormalCrystalMix,
+      0.0,
+      1.0
+    );
   float biomeObjectNormalTexturedDenominator = max(biomeObjectNormalTexturedMix, 0.0001);
   vec3 biomeMappedNormal = texture2D(normalMap, vNormalMapUv).xyz * 2.0 - 1.0;
   vec3 biomeMushroomNormal = texture2D(mushroomNormalMap, vNormalMapUv).xyz * 2.0 - 1.0;
-  biomeMappedNormal = mix(
-    biomeMappedNormal,
-    biomeMushroomNormal,
-    biomeObjectNormalMushroomMix / biomeObjectNormalTexturedDenominator
-  );
+  vec3 biomeCrystalNormal = texture2D(crystalNormalMap, vNormalMapUv).xyz * 2.0 - 1.0;
+  biomeMappedNormal =
+    (
+      biomeMappedNormal * biomeObjectNormalMeadowMix +
+      biomeMushroomNormal * biomeObjectNormalMushroomMix +
+      biomeCrystalNormal * biomeObjectNormalCrystalMix
+    ) / biomeObjectNormalTexturedDenominator;
   biomeMappedNormal = mix(vec3(0.0, 0.0, 1.0), biomeMappedNormal, biomeObjectNormalTexturedMix);
   normal = biomeMappedNormal;
 
@@ -265,21 +357,31 @@ varying float vMushroomWeight;`
 #elif defined(USE_NORMALMAP_TANGENTSPACE)
   float biomeTangentNormalMeadowMix = clamp(vMeadowWeight, 0.0, 1.0);
   float biomeTangentNormalMushroomMix = clamp(vMushroomWeight, 0.0, 1.0);
+  float biomeTangentNormalCrystalMix = clamp(vCrystalWeight, 0.0, 1.0);
   float biomeTangentNormalTexturedMix =
-    clamp(biomeTangentNormalMeadowMix + biomeTangentNormalMushroomMix, 0.0, 1.0);
+    clamp(
+      biomeTangentNormalMeadowMix +
+      biomeTangentNormalMushroomMix +
+      biomeTangentNormalCrystalMix,
+      0.0,
+      1.0
+    );
   float biomeTangentNormalTexturedDenominator = max(biomeTangentNormalTexturedMix, 0.0001);
   vec3 biomeMapN = texture2D(normalMap, vNormalMapUv).xyz * 2.0 - 1.0;
   vec3 biomeMushroomMapN = texture2D(mushroomNormalMap, vNormalMapUv).xyz * 2.0 - 1.0;
-  vec2 biomeBlendedNormalScale = mix(
-    normalScale,
-    mushroomNormalScale,
-    biomeTangentNormalMushroomMix / biomeTangentNormalTexturedDenominator
-  );
-  biomeMapN = mix(
-    biomeMapN,
-    biomeMushroomMapN,
-    biomeTangentNormalMushroomMix / biomeTangentNormalTexturedDenominator
-  );
+  vec3 biomeCrystalMapN = texture2D(crystalNormalMap, vNormalMapUv).xyz * 2.0 - 1.0;
+  vec2 biomeBlendedNormalScale =
+    (
+      normalScale * biomeTangentNormalMeadowMix +
+      mushroomNormalScale * biomeTangentNormalMushroomMix +
+      crystalNormalScale * biomeTangentNormalCrystalMix
+    ) / biomeTangentNormalTexturedDenominator;
+  biomeMapN =
+    (
+      biomeMapN * biomeTangentNormalMeadowMix +
+      biomeMushroomMapN * biomeTangentNormalMushroomMix +
+      biomeCrystalMapN * biomeTangentNormalCrystalMix
+    ) / biomeTangentNormalTexturedDenominator;
   biomeMapN = mix(vec3(0.0, 0.0, 1.0), biomeMapN, biomeTangentNormalTexturedMix);
   biomeMapN.xy *= biomeBlendedNormalScale;
   normal = normalize(tbn * biomeMapN);

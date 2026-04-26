@@ -29,6 +29,14 @@ function createMesh(geometry, material) {
   return mesh;
 }
 
+function enableBloomRecursively(object) {
+  object.traverse((child) => {
+    if (child.isMesh) {
+      child.layers.enable(SELECTIVE_BLOOM_LAYER);
+    }
+  });
+}
+
 function createPlantMaterial(color, emissive = null, emissiveIntensity = 0) {
   return new THREE.MeshStandardMaterial({
     color,
@@ -347,12 +355,22 @@ function buildStump({ rng }) {
 
 function buildCrystalCluster({ rng, crystalColor }) {
   const group = new THREE.Group();
-  const crystalMaterial = new THREE.MeshStandardMaterial({
+  const crystalMaterial = new THREE.MeshPhysicalMaterial({
     color: crystalColor,
     emissive: crystalColor,
-    emissiveIntensity: 0.35,
-    metalness: 0.12,
-    roughness: 0.25
+    emissiveIntensity: 0.0,
+    metalness: 0,
+    roughness: 0.04,
+    transmission: 0.78,
+    transparent: true,
+    opacity: 0.96,
+    thickness: 1.8,
+    ior: 1.22,
+    reflectivity: 0.85,
+    clearcoat: 1,
+    clearcoatRoughness: 0.08,
+    attenuationColor: new THREE.Color(crystalColor),
+    attenuationDistance: 1.2
   });
   const count = 3 + Math.floor(rng() * 4);
 
@@ -369,8 +387,11 @@ function buildCrystalCluster({ rng, crystalColor }) {
       randomBetween(rng, -0.55, 0.55)
     );
     crystal.rotation.y = rng() * Math.PI;
+    crystal.layers.enable(SELECTIVE_BLOOM_LAYER);
     group.add(crystal);
   }
+
+  enableBloomRecursively(group);
 
   return { object: group };
 }

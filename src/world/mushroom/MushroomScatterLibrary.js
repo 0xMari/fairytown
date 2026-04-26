@@ -3,8 +3,7 @@ import { PLACEHOLDER_BUILDERS } from "../placeholders.js";
 import { addBuiltAssetToChunk } from "../InstanceBatchCollector.js";
 import {
   getBiomeWeightFactor,
-  getLocalTerrainHeight,
-  getPathMetrics
+  getLocalTerrainHeight
 } from "./MossLibrary.js";
 
 function randomBetween(rng, min, max) {
@@ -80,7 +79,6 @@ export class MushroomScatterLibrary {
         randomBetween(rng, -halfSize * 0.72, halfSize * 0.72),
         randomBetween(rng, -halfSize * 0.72, halfSize * 0.72)
       );
-      const anchorPath = getPathMetrics(anchor.x, anchor.y, chunkX, chunkZ, chunkSize);
       const anchorWeight = getBiomeWeightFactor(
         anchor.x,
         anchor.y,
@@ -91,7 +89,7 @@ export class MushroomScatterLibrary {
         getBiomeWeightsAtPosition
       );
 
-      if (anchorPath.distance < anchorPath.halfWidth + 2.4 || anchorWeight < 0.28) {
+      if (anchorWeight < 0.28) {
         continue;
       }
 
@@ -142,7 +140,6 @@ export class MushroomScatterLibrary {
           anchor.x + Math.cos(angle) * radius,
           anchor.y + Math.sin(angle) * radius
         );
-        const path = getPathMetrics(position.x, position.y, chunkX, chunkZ, chunkSize);
         const biomeWeight = getBiomeWeightFactor(
           position.x,
           position.y,
@@ -153,7 +150,7 @@ export class MushroomScatterLibrary {
           getBiomeWeightsAtPosition
         );
 
-        if (path.distance < path.halfWidth + 0.65 || biomeWeight < 0.18) {
+        if (biomeWeight < 0.18) {
           continue;
         }
 
