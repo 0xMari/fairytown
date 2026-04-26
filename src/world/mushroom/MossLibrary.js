@@ -409,8 +409,9 @@ function createMossTransforms({
           getBiomeWeightsAtPosition
         );
         const biomePresence = Math.min(biomeInterior, biomeWeight);
+        const waterPresence = terrain?.getWaterDataAtLocalPosition?.(jitteredX, jitteredZ)?.presence ?? 0;
 
-        if (biomePresence < layer.minPresence) {
+        if (biomePresence < layer.minPresence || waterPresence > 0.14) {
           continue;
         }
 
@@ -423,7 +424,8 @@ function createMossTransforms({
           biomePresence *
           THREE.MathUtils.smoothstep(patchField, layer.threshold, 0.92) *
           THREE.MathUtils.lerp(0.72, 1.18, variationField) *
-          lodPresenceScale;
+          lodPresenceScale *
+          THREE.MathUtils.lerp(1, 0, THREE.MathUtils.smoothstep(waterPresence, 0.06, 0.2));
 
         if (presence < layer.minPresence || rng() > presence) {
           continue;

@@ -12,9 +12,11 @@ import {
   createTerrainGeometry,
   getTerrainHeight,
   getTerrainHeightInChunk,
+  getTerrainWaterData,
   TERRAIN_CHUNK_SEGMENTS
 } from "./terrain.js";
 import { InstanceBatchCollector, addBuiltAssetToChunk } from "./InstanceBatchCollector.js";
+import { TerrainWaterLibrary } from "./TerrainWaterLibrary.js";
 import { isVillageChunk } from "./village/index.js";
 
 const CHUNK_BUILD_STAGE_COUNT = 3;
@@ -46,6 +48,7 @@ export class ChunkManager {
     this.nearbyChunkLodFactor =
       options.nearbyChunkLodFactor ?? DEFAULT_NEARBY_CHUNK_LOD_FACTOR;
     this.lastElapsedTime = 0;
+    this.terrainWater = new TerrainWaterLibrary();
     this.biomeGroundColors = Object.fromEntries(
       BIOME_SEQUENCE.map((key) => [key, new THREE.Color(BIOMES[key].groundColor)])
     );
@@ -148,6 +151,43 @@ export class ChunkManager {
 
   getTerrainHeightAtLocalPosition(localX, localZ, chunkX, chunkZ) {
     return getTerrainHeightInChunk(localX, localZ, chunkX, chunkZ, this.chunkSize, this.seed);
+  }
+
+  getTerrainWaterDataAtPosition(x, z) {
+    return getTerrainWaterData(x, z, this.seed);
+  }
+
+  getVisibleTerrainWaterDataAtPosition(x, z) {
+    const chunkX = Math.floor(x / this.chunkSize);
+    const chunkZ = Math.floor(z / this.chunkSize);
+    const localX = x - chunkX * this.chunkSize;
+    const localZ = z - chunkZ * this.chunkSize;
+    const localCenterX = localX - this.chunkSize * 0.5;
+    const localCenterZ = localZ - this.chunkSize * 0.5;
+    const rawWaterData = this.getTerrainWaterDataAtPosition(x, z);
+    const villageClearance =
+      isVillageChunk(chunkX, chunkZ)
+        ? THREE.MathUtils.smoothstep(Math.hypot(localCenterX, localCenterZ), 10, 18)
+        : 1;
+    const presence = rawWaterData.presence * villageClearance;
+    const depth = rawWaterData.depth * villageClearance;
+
+    return {
+      ...rawWaterData,
+      presence,
+      depth
+    };
+  }
+
+  getSurfaceHeightAtPosition(x, z) {
+    const terrainHeight = this.getTerrainHeightAtPosition(x, z);
+    const waterData = this.getVisibleTerrainWaterDataAtPosition(x, z);
+
+    if (waterData.presence < 0.12) {
+      return terrainHeight;
+    }
+
+    return Math.max(terrainHeight, waterData.surfaceHeight);
   }
 
   createTerrainGeometryForChunk(chunkX, chunkZ, heightOffset = 0) {
@@ -295,6 +335,10 @@ export class ChunkManager {
       chunk.terrainMesh.geometry.dispose();
     }
 
+    if (chunk.waterMesh?.geometry) {
+      chunk.waterMesh.geometry.dispose();
+    }
+
     this.scene.remove(chunk.group);
     this.activeChunks.delete(key);
     this.updaters = this.updaters.filter((entry) => entry.chunkKey !== key);
@@ -358,6 +402,12 @@ export class ChunkManager {
       getHeightAtPosition: this.getTerrainHeightAtPosition.bind(this),
       getHeightAtLocalPosition: (localX, localZ) =>
         this.getTerrainHeightAtLocalPosition(localX, localZ, chunk.chunkX, chunk.chunkZ),
+      getWaterDataAtPosition: this.getVisibleTerrainWaterDataAtPosition.bind(this),
+      getWaterDataAtLocalPosition: (localX, localZ) =>
+        this.getVisibleTerrainWaterDataAtPosition(
+          chunk.chunkX * this.chunkSize + localX,
+          chunk.chunkZ * this.chunkSize + localZ
+        ),
       createChunkGeometry: ({ heightOffset = 0 } = {}) =>
         this.createTerrainGeometryForChunk(chunk.chunkX, chunk.chunkZ, heightOffset)
     };
@@ -370,7 +420,10 @@ export class ChunkManager {
     const meadowWeights = new Float32Array(terrainPositions.count);
     const mushroomWeights = new Float32Array(terrainPositions.count);
     const crystalWeights = new Float32Array(terrainPositions.count);
+    const waterMasks = new Float32Array(terrainPositions.count);
+    const waterDepths = new Float32Array(terrainPositions.count);
     const groundColor = new THREE.Color();
+    let maxWaterMask = 0;
 
     for (let index = 0; index < terrainPositions.count; index += 1) {
       const localX = terrainPositions.getX(index);
@@ -378,6 +431,20 @@ export class ChunkManager {
       const worldX = chunk.chunkX * this.chunkSize + localX;
       const worldZ = chunk.chunkZ * this.chunkSize + localZ;
       const biomeWeights = this.getBiomeWeightsAtPosition(worldX, worldZ);
+      const waterData = this.getVisibleTerrainWaterDataAtPosition(worldX, worldZ);
+      const waterMask = waterData.presence;
+      const waterDepth = waterData.depth;
+      const terrainHeight = terrainPositions.getZ(index);
+
+      if (waterMask > 0.12) {
+        const submergedBedHeight = waterData.surfaceHeight - (0.28 + waterDepth * 1.85);
+        const flattenedHeight = THREE.MathUtils.lerp(
+          terrainHeight,
+          Math.min(terrainHeight, submergedBedHeight),
+          THREE.MathUtils.smoothstep(waterMask, 0.12, 0.72)
+        );
+        terrainPositions.setZ(index, flattenedHeight);
+      }
 
       groundColor.setRGB(0, 0, 0);
 
@@ -395,7 +462,15 @@ export class ChunkManager {
       meadowWeights[index] = biomeWeights.meadow ?? 0;
       mushroomWeights[index] = biomeWeights.mushrooms ?? 0;
       crystalWeights[index] = biomeWeights.crystal ?? 0;
+      waterMasks[index] = waterMask;
+      waterDepths[index] = waterDepth;
+      maxWaterMask = Math.max(maxWaterMask, waterMask);
     }
+
+    terrainPositions.needsUpdate = true;
+    terrainGeometry.computeVertexNormals();
+    terrainGeometry.computeBoundingBox();
+    terrainGeometry.computeBoundingSphere();
 
     terrainGeometry.setAttribute("color", new THREE.BufferAttribute(groundColors, 3));
     terrainGeometry.setAttribute("meadowWeight", new THREE.BufferAttribute(meadowWeights, 1));
@@ -418,6 +493,43 @@ export class ChunkManager {
     ground.receiveShadow = true;
     chunk.content.add(ground);
     chunk.terrainMesh = ground;
+
+    if (maxWaterMask > 0.18) {
+      const waterGeometry = new THREE.PlaneGeometry(
+        this.chunkSize,
+        this.chunkSize,
+        this.terrainSegments,
+        this.terrainSegments
+      );
+      const waterPositions = waterGeometry.attributes.position;
+      const waterUvs = waterGeometry.attributes.uv;
+
+      for (let index = 0; index < waterPositions.count; index += 1) {
+        const localX = waterPositions.getX(index);
+        const localZ = -waterPositions.getY(index);
+        const worldX = chunk.chunkX * this.chunkSize + localX;
+        const worldZ = chunk.chunkZ * this.chunkSize + localZ;
+        const waterData = this.getVisibleTerrainWaterDataAtPosition(worldX, worldZ);
+        waterPositions.setZ(index, waterData.surfaceHeight);
+        waterUvs.setXY(index, worldX / 18, worldZ / 18);
+      }
+
+      waterPositions.needsUpdate = true;
+      waterUvs.needsUpdate = true;
+      waterGeometry.computeVertexNormals();
+      waterGeometry.computeBoundingBox();
+      waterGeometry.computeBoundingSphere();
+      waterGeometry.setAttribute("waterMask", new THREE.BufferAttribute(waterMasks, 1));
+      waterGeometry.setAttribute("waterDepth", new THREE.BufferAttribute(waterDepths, 1));
+
+      const water = new THREE.Mesh(waterGeometry, this.terrainWater.getMaterial());
+      water.rotation.x = -Math.PI / 2;
+      water.receiveShadow = false;
+      water.castShadow = false;
+      water.renderOrder = 2;
+      chunk.content.add(water);
+      chunk.waterMesh = water;
+    }
   }
 
   buildChunkAdditions(chunk) {
@@ -488,6 +600,10 @@ export class ChunkManager {
             chunk.chunkX * this.chunkSize + x,
             chunk.chunkZ * this.chunkSize + z
           )[chunk.biomeKey] ?? 1;
+        const visibleWaterPresence = this.getVisibleTerrainWaterDataAtPosition(
+          chunk.chunkX * this.chunkSize + x,
+          chunk.chunkZ * this.chunkSize + z
+        ).presence;
         const spawnDensity =
           chunk.biome.getSpawnDensity?.({
             chunkKey: chunk.key,
@@ -497,9 +613,19 @@ export class ChunkManager {
             z,
             worldX: chunk.chunkX * this.chunkSize + x,
             worldZ: chunk.chunkZ * this.chunkSize + z,
-            biomeWeight
+            biomeWeight,
+            waterPresence: visibleWaterPresence
           }) ?? 1;
-        const totalDensity = biomeWeight * spawnDensity * assetLodFactor;
+        if (visibleWaterPresence > 0.14) {
+          continue;
+        }
+
+        const dryLandFactor = THREE.MathUtils.lerp(
+          1,
+          0,
+          THREE.MathUtils.smoothstep(visibleWaterPresence, 0.08, 0.24)
+        );
+        const totalDensity = biomeWeight * spawnDensity * assetLodFactor * dryLandFactor;
 
         if (totalDensity < 0.12 || chunk.rng() > THREE.MathUtils.lerp(0.2, 1, totalDensity)) {
           continue;

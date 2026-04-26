@@ -254,9 +254,9 @@ async function bootstrap() {
 
     renderer.info.reset();
     controls.update(delta);
-    const focusHeight = world.getTerrainHeightAtPosition(camera.position.x, camera.position.z);
+    const focusHeight = world.getSurfaceHeightAtPosition(camera.position.x, camera.position.z);
     camera.position.y = Math.max(
-      focusHeight + 1.4,
+      focusHeight + 1,
       camera.position.y
     );
     //timeOfDay.update(delta, camera.position, focusHeight);

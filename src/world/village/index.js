@@ -56,6 +56,12 @@ function createBuiltObject({
     return;
   }
 
+  const waterPresence = terrain?.getWaterDataAtLocalPosition?.(x, z)?.presence ?? 0;
+
+  if (waterPresence > 0.14) {
+    return;
+  }
+
   const built = builder({
     rng,
     biome,

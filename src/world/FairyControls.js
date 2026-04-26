@@ -92,7 +92,6 @@ export class FairyControls {
       (this.keys.has("ShiftLeft") || this.keys.has("ShiftRight") ? this.boostMultiplier : 1);
 
     this.camera.position.addScaledVector(move, speed * delta);
-    this.camera.position.y = Math.max(1.4, this.camera.position.y);
     this.camera.position.y = Math.min(this.maxHeight, this.camera.position.y);
   }
 }
