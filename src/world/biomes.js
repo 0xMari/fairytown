@@ -1,18 +1,13 @@
 import * as THREE from "three";
 import { fbm2D } from "./noise.js";
-import { CRYSTAL_BIOME } from "./crystal/index.js";
-import { MEDOW_BIOME } from "./medow/index.js";
-import { MUSHROOM_BIOME } from "./mushroom/index.js";
-import { VILLAGE_BIOME } from "./village/index.js";
+import {
+  PROCEDURAL_BIOMES,
+  PROCEDURAL_BIOME_SEQUENCE
+} from "./procedural/index.js";
 
-export const BIOMES = {
-  meadow: MEDOW_BIOME,
-  village: VILLAGE_BIOME,
-  mushrooms: MUSHROOM_BIOME,
-  crystal: CRYSTAL_BIOME
-};
+export const BIOMES = PROCEDURAL_BIOMES;
 
-export const BIOME_SEQUENCE = ["meadow", "mushrooms", "crystal"];
+export const BIOME_SEQUENCE = PROCEDURAL_BIOME_SEQUENCE;
 const BIOME_THRESHOLDS = [1 / 3, 2 / 3];
 const BIOME_BLEND_WIDTH = 0.1;
 

@@ -46,6 +46,8 @@ export class InstanceBatchCollector {
         group.add(built);
       }
     }
+
+    this.batches.clear();
   }
 }
 
@@ -64,10 +66,11 @@ export function addBuiltAssetToChunk({
   }
 
   if (built.instances?.length) {
+    const rootScale = built.rootScaleOverride ?? scale;
     const rootMatrix = new THREE.Matrix4().compose(
       new THREE.Vector3(position.x, position.y, position.z),
       new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), rotationY),
-      new THREE.Vector3(scale, scale, scale)
+      new THREE.Vector3(rootScale, rootScale, rootScale)
     );
 
     instanceCollector?.queue(built.instances, rootMatrix);

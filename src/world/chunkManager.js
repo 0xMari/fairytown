@@ -7,7 +7,7 @@ import {
   getChunkPalette
 } from "./biomes.js";
 import { createRng } from "./noise.js";
-import { PLACEHOLDER_BUILDERS } from "./placeholders.js";
+import { PROCEDURAL_ASSET_BUILDERS as PLACEHOLDER_BUILDERS } from "./procedural/ProceduralAssetBuilders.js";
 import {
   createTerrainGeometry,
   getTerrainHeight,
@@ -17,16 +17,38 @@ import {
 } from "./terrain.js";
 import { InstanceBatchCollector, addBuiltAssetToChunk } from "./InstanceBatchCollector.js";
 import { TerrainWaterLibrary } from "./TerrainWaterLibrary.js";
-import { isVillageChunk } from "./village/index.js";
+import { isVillageChunk } from "./villageGrid.js";
 
 const CHUNK_BUILD_STAGE_COUNT = 3;
-const DEFAULT_CHUNK_BUILD_STEPS_PER_FRAME = 2;
+const DEFAULT_CHUNK_BUILD_STEPS_PER_FRAME = 1;
 const DEFAULT_CHUNK_PRELOAD_RADIUS = 2;
 const DEFAULT_CHUNK_UNLOAD_GRACE_SECONDS = 0.45;
-const DEFAULT_NEARBY_CHUNK_LOD_FACTOR = 0.42;
+const DEFAULT_CENTER_CHUNK_LOD_FACTOR = 1.1;
+const DEFAULT_NEARBY_CHUNK_LOD_FACTOR = 0.68;
+const DEFAULT_POPULATION_REBUILD_LOD_DELTA = Number.POSITIVE_INFINITY;
 
 function randomBetween(rng, min, max) {
   return min + (max - min) * rng();
+}
+
+function disposeInstanceBatchMaterials(object) {
+  object.traverse((child) => {
+    if (!child.isMesh) {
+      return;
+    }
+
+    const materials = Array.isArray(child.material) ? child.material : [child.material];
+
+    if (child.geometry?.userData?.disposeWithChunk) {
+      child.geometry.dispose();
+    }
+
+    materials.forEach((material) => {
+      if (material?.userData?.disposeWithInstanceBatch) {
+        material.dispose();
+      }
+    });
+  });
 }
 
 export class ChunkManager {
@@ -45,8 +67,12 @@ export class ChunkManager {
     this.chunkBuildStepsPerFrame = options.chunkBuildStepsPerFrame ?? DEFAULT_CHUNK_BUILD_STEPS_PER_FRAME;
     this.chunkUnloadGraceSeconds =
       options.chunkUnloadGraceSeconds ?? DEFAULT_CHUNK_UNLOAD_GRACE_SECONDS;
+    this.centerChunkLodFactor =
+      options.centerChunkLodFactor ?? DEFAULT_CENTER_CHUNK_LOD_FACTOR;
     this.nearbyChunkLodFactor =
       options.nearbyChunkLodFactor ?? DEFAULT_NEARBY_CHUNK_LOD_FACTOR;
+    this.populationRebuildLodDelta =
+      options.populationRebuildLodDelta ?? DEFAULT_POPULATION_REBUILD_LOD_DELTA;
     this.lastElapsedTime = 0;
     this.terrainWater = new TerrainWaterLibrary();
     this.biomeGroundColors = Object.fromEntries(
@@ -107,7 +133,7 @@ export class ChunkManager {
     const ringDistance = this.getChunkRingDistance(chunkX, chunkZ, currentChunkX, currentChunkZ);
 
     if (ringDistance === 0 || this.viewRadius <= 0) {
-      return 1;
+      return this.centerChunkLodFactor;
     }
 
     if (ringDistance > this.viewRadius) {
@@ -116,7 +142,7 @@ export class ChunkManager {
 
     const normalizedDistance = ringDistance / this.viewRadius;
     return THREE.MathUtils.lerp(
-      1,
+      this.centerChunkLodFactor,
       this.nearbyChunkLodFactor,
       THREE.MathUtils.smoothstep(normalizedDistance, 0, 1)
     );
@@ -259,6 +285,8 @@ export class ChunkManager {
         currentChunkZ
       );
 
+      this.syncChunkPopulationForLod(chunk);
+
       if (chunk.stage < chunk.targetStage && !chunk.isQueued) {
         this.enqueueChunkBuild(chunk);
       }
@@ -288,6 +316,108 @@ export class ChunkManager {
     }
   }
 
+  syncChunkPopulationForLod(chunk) {
+    if (chunk.stage < 1) {
+      return;
+    }
+
+    if (chunk.targetStage <= 1) {
+      if (chunk.stage > 1 || chunk.detailsBuildTarget) {
+        this.clearChunkDetails(chunk);
+      }
+
+      return;
+    }
+
+    if (
+      chunk.stage !== CHUNK_BUILD_STAGE_COUNT ||
+      chunk.detailsLodFactor === null ||
+      chunk.detailsBuildTarget
+    ) {
+      return;
+    }
+
+    if (
+      Math.abs(chunk.lodFactor - chunk.detailsLodFactor) < this.populationRebuildLodDelta
+    ) {
+      return;
+    }
+
+    this.scheduleChunkDetailsRebuild(chunk);
+  }
+
+  createChunkPopulationRng(chunk, lodFactor = chunk.lodFactor ?? 1) {
+    return createRng(
+      "chunk-details",
+      this.seed,
+      chunk.chunkX,
+      chunk.chunkZ,
+      chunk.biomeKey,
+      Math.round(lodFactor * 100)
+    );
+  }
+
+  createChunkDetailsGroup() {
+    const details = new THREE.Group();
+    details.name = "chunk-details";
+    return details;
+  }
+
+  clearChunkDetails(chunk) {
+    if (chunk.detailsBuildTarget) {
+      disposeInstanceBatchMaterials(chunk.detailsBuildTarget);
+      chunk.detailsBuildTarget = null;
+      chunk.pendingDetailsLodFactor = null;
+    }
+
+    if (chunk.details) {
+      chunk.content.remove(chunk.details);
+      disposeInstanceBatchMaterials(chunk.details);
+    }
+
+    chunk.details = this.createChunkDetailsGroup();
+    chunk.content.add(chunk.details);
+    chunk.instanceCollector = new InstanceBatchCollector();
+    chunk.updaters = [];
+    chunk.hasRegisteredUpdaters = false;
+    chunk.detailsLodFactor = null;
+    chunk.stage = Math.min(chunk.stage, 1);
+    this.updaters = this.updaters.filter((entry) => entry.chunkKey !== chunk.key);
+  }
+
+  scheduleChunkDetailsRebuild(chunk) {
+    this.updaters = this.updaters.filter((entry) => entry.chunkKey !== chunk.key);
+    chunk.updaters = [];
+    chunk.instanceCollector = new InstanceBatchCollector();
+    chunk.rng = this.createChunkPopulationRng(chunk);
+    chunk.detailsBuildTarget = this.createChunkDetailsGroup();
+    chunk.pendingDetailsLodFactor = chunk.lodFactor;
+    chunk.hasRegisteredUpdaters = false;
+    chunk.stage = 1;
+
+    if (!chunk.isQueued) {
+      this.enqueueChunkBuild(chunk);
+    }
+  }
+
+  commitChunkDetailsRebuild(chunk) {
+    if (!chunk.detailsBuildTarget) {
+      chunk.detailsLodFactor = chunk.lodFactor;
+      return;
+    }
+
+    if (chunk.details) {
+      chunk.content.remove(chunk.details);
+      disposeInstanceBatchMaterials(chunk.details);
+    }
+
+    chunk.details = chunk.detailsBuildTarget;
+    chunk.content.add(chunk.details);
+    chunk.detailsLodFactor = chunk.pendingDetailsLodFactor ?? chunk.lodFactor;
+    chunk.detailsBuildTarget = null;
+    chunk.pendingDetailsLodFactor = null;
+  }
+
   enqueueChunkBuild(chunk) {
     chunk.isQueued = true;
     this.generationQueue.push(chunk.key);
@@ -312,11 +442,19 @@ export class ChunkManager {
         continue;
       }
 
+      if (chunk.stage >= chunk.targetStage) {
+        continue;
+      }
+
       if (chunk.stage === 0) {
         this.buildChunkTerrain(chunk);
         chunk.stage = 1;
         chunk.group.visible = true;
       } else if (chunk.stage === 1) {
+        if (!chunk.detailsBuildTarget && chunk.detailsLodFactor === null) {
+          chunk.rng = this.createChunkPopulationRng(chunk);
+        }
+
         this.buildChunkAdditions(chunk);
         chunk.stage = 2;
       } else if (chunk.stage === 2) {
@@ -337,6 +475,14 @@ export class ChunkManager {
 
     if (chunk.waterMesh?.geometry) {
       chunk.waterMesh.geometry.dispose();
+    }
+
+    if (chunk.detailsBuildTarget) {
+      disposeInstanceBatchMaterials(chunk.detailsBuildTarget);
+    }
+
+    if (chunk.details) {
+      disposeInstanceBatchMaterials(chunk.details);
     }
 
     this.scene.remove(chunk.group);
@@ -367,12 +513,14 @@ export class ChunkManager {
     const naturePalette = getChunkPalette(natureBiome);
     const group = new THREE.Group();
     const content = new THREE.Group();
+    const details = this.createChunkDetailsGroup();
     const updaters = [];
     const instanceCollector = new InstanceBatchCollector();
     group.position.set(chunkX * this.chunkSize, 0, chunkZ * this.chunkSize);
     group.userData = { biomeKey, natureBiomeKey };
     group.visible = false;
     group.add(content);
+    content.add(details);
 
     return {
       key: chunkKey,
@@ -386,11 +534,17 @@ export class ChunkManager {
       naturePalette,
       group,
       content,
+      details,
+      detailsBuildTarget: null,
+      detailsLodFactor: null,
+      pendingDetailsLodFactor: null,
       updaters,
       instanceCollector,
       rng: createRng("chunk", this.seed, chunkX, chunkZ, biomeKey),
       stage: 0,
       targetStage: 1,
+      ringDistance: Number.POSITIVE_INFINITY,
+      lodFactor: 0,
       isQueued: false,
       missingSince: null,
       hasRegisteredUpdaters: false
@@ -478,6 +632,7 @@ export class ChunkManager {
     terrainGeometry.setAttribute("crystalWeight", new THREE.BufferAttribute(crystalWeights, 1));
 
     const terrainMaterial =
+      this.assetContext?.procedural?.terrain?.getTerrainMaterial?.() ??
       this.assetContext?.medow?.ground?.getTerrainMaterial?.() ??
       new THREE.MeshStandardMaterial({
         vertexColors: true,
@@ -537,8 +692,10 @@ export class ChunkManager {
       return;
     }
 
+    const detailsGroup = chunk.detailsBuildTarget ?? chunk.details ?? chunk.content;
+
     chunk.biome.createChunkAdditions({
-      group: chunk.content,
+      group: detailsGroup,
       chunkKey: chunk.key,
       chunkX: chunk.chunkX,
       chunkZ: chunk.chunkZ,
@@ -568,6 +725,7 @@ export class ChunkManager {
     let spawnedAssets = 0;
     const lodFactor = chunk.lodFactor ?? 1;
     const lodObjectBudget = Math.max(10, Math.floor(this.maxObjectsPerChunk * lodFactor));
+    const detailsGroup = chunk.detailsBuildTarget ?? chunk.details ?? chunk.content;
 
     for (const [assetName, config] of Object.entries(chunk.biome.assetMix)) {
       if (spawnedAssets >= lodObjectBudget) {
@@ -606,9 +764,11 @@ export class ChunkManager {
         ).presence;
         const spawnDensity =
           chunk.biome.getSpawnDensity?.({
+            assetName,
             chunkKey: chunk.key,
             chunkX: chunk.chunkX,
             chunkZ: chunk.chunkZ,
+            seed: this.seed,
             x,
             z,
             worldX: chunk.chunkX * this.chunkSize + x,
@@ -626,14 +786,18 @@ export class ChunkManager {
           THREE.MathUtils.smoothstep(visibleWaterPresence, 0.08, 0.24)
         );
         const totalDensity = biomeWeight * spawnDensity * assetLodFactor * dryLandFactor;
+        const placementDensity = THREE.MathUtils.clamp(totalDensity, 0, 1);
 
-        if (totalDensity < 0.12 || chunk.rng() > THREE.MathUtils.lerp(0.2, 1, totalDensity)) {
+        if (
+          placementDensity < 0.12 ||
+          chunk.rng() > THREE.MathUtils.lerp(0.2, 1, placementDensity)
+        ) {
           continue;
         }
 
         const scale =
           randomBetween(chunk.rng, config.scale[0], config.scale[1]) *
-          THREE.MathUtils.lerp(0.55, 1, totalDensity);
+          THREE.MathUtils.lerp(0.55, 1.04, placementDensity);
         const height = this.getTerrainHeightAtLocalPosition(
           x,
           z,
@@ -647,6 +811,8 @@ export class ChunkManager {
           palette: chunk.palette,
           assetContext: this.assetContext,
           seed: this.seed,
+          lodFactor,
+          lodRingDistance: chunk.ringDistance,
           placement: {
             chunkX: chunk.chunkX,
             chunkZ: chunk.chunkZ,
@@ -657,9 +823,9 @@ export class ChunkManager {
           }
         });
         const rotationY = chunk.rng() * Math.PI * 2;
-        addBuiltAssetToChunk({
+        const added = addBuiltAssetToChunk({
           built,
-          group: chunk.content,
+          group: detailsGroup,
           instanceCollector: chunk.instanceCollector,
           position: { x, y: height, z },
           rotationY,
@@ -667,6 +833,11 @@ export class ChunkManager {
           updaters: chunk.updaters,
           chunkKey: chunk.key
         });
+
+        if (!added) {
+          continue;
+        }
+
         spawnedAssets += 1;
 
         if (spawnedAssets >= lodObjectBudget) {
@@ -675,7 +846,8 @@ export class ChunkManager {
       }
     }
 
-    chunk.instanceCollector.flushInto(chunk.content);
+    chunk.instanceCollector.flushInto(detailsGroup);
+    this.commitChunkDetailsRebuild(chunk);
 
     if (!chunk.hasRegisteredUpdaters && chunk.updaters.length > 0) {
       this.updaters.push(...chunk.updaters);
@@ -684,18 +856,41 @@ export class ChunkManager {
   }
 
   getAssetLodFactor(assetName, lodFactor) {
-    if (lodFactor >= 0.999) {
-      return 1;
+    const density = Math.max(0, lodFactor);
+
+    if (
+      assetName === "fireflyCluster" ||
+      assetName === "sporeCluster" ||
+      assetName === "wispCluster" ||
+      assetName === "glowWisp"
+    ) {
+      return Math.min(1.35, Math.pow(density, 1.45));
     }
 
-    if (assetName === "fireflyCluster" || assetName === "sporeCluster" || assetName === "wispCluster") {
-      return Math.pow(lodFactor, 1.75);
+    if (
+      assetName === "flowerPatch" ||
+      assetName === "bush" ||
+      assetName === "glowBloom" ||
+      assetName === "flowerSpray" ||
+      assetName === "fernPatch" ||
+      assetName === "mushroomBloom" ||
+      assetName === "crystalBloom" ||
+      assetName === "sapling"
+    ) {
+      return Math.min(1.85, Math.pow(density, 1.12));
     }
 
-    if (assetName === "flowerPatch" || assetName === "bush" || assetName === "glowBloom") {
-      return Math.pow(lodFactor, 1.35);
+    if (
+      assetName === "fairyTree" ||
+      assetName === "twistedTree" ||
+      assetName === "silverTree" ||
+      assetName === "elderTree" ||
+      assetName === "canopyTree" ||
+      assetName === "slenderTree"
+    ) {
+      return Math.min(1.35, Math.pow(density, 0.85));
     }
 
-    return lodFactor;
+    return Math.min(1.55, density);
   }
 }

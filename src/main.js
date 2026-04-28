@@ -9,21 +9,12 @@ import { SELECTIVE_BLOOM_LAYER } from "./rendering/bloom.js";
 import { PerformanceController } from "./rendering/PerformanceController.js";
 import { BIOMES } from "./world/biomes.js";
 import { ChunkManager } from "./world/chunkManager.js";
-import {
-  createCrystalAssetContext,
-  loadCrystalAssets
-} from "./world/crystal/index.js";
 import { FairyControls } from "./world/FairyControls.js";
-import { TreeLibrary } from "./world/TreeLibrary.js";
 import {
-  createMedowAssetContext,
-  loadMedowAssets,
-  updateMedowAssets
-} from "./world/medow/index.js";
-import {
-  createMushroomAssetContext,
-  loadMushroomAssets
-} from "./world/mushroom/index.js";
+  createProceduralAssetContext,
+  loadProceduralAssets,
+  updateProceduralAssets
+} from "./world/procedural/index.js";
 import { TimeOfDayController } from "./world/TimeOfDayController.js";
 
 const MAX_RENDERER_PIXEL_RATIO = 1.25;
@@ -33,6 +24,8 @@ const WORLD_PRELOAD_RADIUS = 2;
 const SUN_SHADOW_MAP_SIZE = 512;
 const HORIZON_FOG_COLOR = "#d9ebfa";
 const HORIZON_FOG_DENSITY = 0.0052;
+const IS_DEBUG_ROUTE = window.location.pathname.replace(/\/+$/, "").endsWith("/debug");
+const ENABLE_BLOOM_PASS = false;
 
 const biomeNameEl = document.querySelector("#biome-name");
 const chunkCountEl = document.querySelector("#chunk-count");
@@ -188,18 +181,10 @@ async function bootstrap() {
   camera.position.set(0, 1, 12);
 
   const controls = new FairyControls(camera, renderer.domElement);
-  const crystalAssets = createCrystalAssetContext();
-  const medowAssets = createMedowAssetContext();
-  const mushroomAssets = createMushroomAssetContext();
-  const trees = new TreeLibrary();
+  const proceduralAssets = createProceduralAssetContext();
 
   try {
-    await Promise.all([
-      loadCrystalAssets(crystalAssets),
-      loadMedowAssets(medowAssets, renderer),
-      loadMushroomAssets(mushroomAssets, renderer),
-      trees.load()
-    ]);
+    await loadProceduralAssets(proceduralAssets, renderer);
   } catch (error) {
     console.error("World assets failed to load.", error);
   } finally {
@@ -211,17 +196,15 @@ async function bootstrap() {
     chunkSize: 48,
     viewRadius: WORLD_VIEW_RADIUS,
     preloadRadius: WORLD_PRELOAD_RADIUS,
-    maxObjectsPerChunk: 90,
+    maxObjectsPerChunk: 72,
     assetContext: {
-      crystal: crystalAssets,
-      medow: medowAssets,
-      mushroom: mushroomAssets,
-      trees
+      procedural: proceduralAssets
     }
   });
   const performanceMonitor = new PerformanceController({
     renderer,
-    getLoadedChunkCount: () => world.getLoadedChunkCount()
+    getLoadedChunkCount: () => world.getLoadedChunkCount(),
+    showGui: IS_DEBUG_ROUTE
   });
 
   const hemiLight = new THREE.HemisphereLight("#fff8dd", "#7ba985", 1.7);
@@ -250,7 +233,8 @@ async function bootstrap() {
     camera,
     sunLight,
     hemiLight,
-    fairyLight
+    fairyLight,
+    showGui: IS_DEBUG_ROUTE
   });
 
   const clock = new THREE.Clock();
@@ -329,23 +313,27 @@ async function bootstrap() {
       focusHeight + 1,
       camera.position.y
     );
-    //timeOfDay.update(delta, camera.position, focusHeight);
+    timeOfDay.update(delta, camera.position, focusHeight);
     world.update(camera.position, elapsedTime);
-    updateMedowAssets(medowAssets, elapsedTime);
+    updateProceduralAssets(proceduralAssets, elapsedTime);
     updateBiomeReadout();
 
-    const originalBackground = scene.background;
-    const originalFog = scene.fog;
+    if (ENABLE_BLOOM_PASS) {
+      const originalBackground = scene.background;
+      const originalFog = scene.fog;
 
-    scene.background = null;
-    scene.fog = null;
-    scene.traverse(darkenNonBloomed);
-    bloomComposer.render();
-    scene.traverse(restoreMaterials);
-    scene.background = originalBackground;
-    scene.fog = originalFog;
+      scene.background = null;
+      scene.fog = null;
+      scene.traverse(darkenNonBloomed);
+      bloomComposer.render();
+      scene.traverse(restoreMaterials);
+      scene.background = originalBackground;
+      scene.fog = originalFog;
 
-    finalComposer.render();
+      finalComposer.render();
+    } else {
+      renderer.render(scene, camera);
+    }
     performanceMonitor.update(delta);
     requestAnimationFrame(animate);
   }

@@ -8,6 +8,19 @@ export function cloneMaterial(material) {
   return material?.clone?.() ?? material;
 }
 
+function markDisposableInstanceMaterial(material) {
+  if (Array.isArray(material)) {
+    material.forEach(markDisposableInstanceMaterial);
+    return material;
+  }
+
+  if (material?.userData) {
+    material.userData.disposeWithInstanceBatch = true;
+  }
+
+  return material;
+}
+
 export function extractInstancedMeshDescriptors(root) {
   root.updateMatrixWorld(true);
 
@@ -43,9 +56,10 @@ export function buildInstancedGroupFromDescriptors(
   const matrix = new THREE.Matrix4();
 
   descriptors.forEach((descriptor) => {
+    const material = markDisposableInstanceMaterial(cloneMaterial(descriptor.material));
     const mesh = new THREE.InstancedMesh(
       descriptor.geometry,
-      cloneMaterial(descriptor.material),
+      material,
       placements.length
     );
 

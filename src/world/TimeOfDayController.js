@@ -273,13 +273,14 @@ function createStarField() {
 }
 
 export class TimeOfDayController {
-  constructor({ scene, renderer, camera, sunLight, hemiLight, fairyLight }) {
+  constructor({ scene, renderer, camera, sunLight, hemiLight, fairyLight, showGui = true }) {
     this.scene = scene;
     this.renderer = renderer;
     this.camera = camera;
     this.sunLight = sunLight;
     this.hemiLight = hemiLight;
     this.fairyLight = fairyLight;
+    this.showGui = showGui;
     this.state = {
       autoCycle: true,
       hour: 8.5,
@@ -317,13 +318,17 @@ export class TimeOfDayController {
     this.scene.add(this.starField);
     this.scene.add(this.sunLight.target);
 
-    this.gui = new GUI({ autoPlace: false, title: "Time Of Day", width: 280 });
-    this.gui.domElement.classList.add("time-gui");
-    document.body.appendChild(this.gui.domElement);
-    this.gui.add(this.state, "autoCycle").name("Auto Cycle");
-    this.gui.add(this.state, "hour", 0, 24, 0.01).name("Hour").listen();
-    this.gui.add(this.state, "dayLengthSeconds", 40, 480, 1).name("Day Length (s)");
-    this.gui.add(this.state, "phase").name("Phase").listen().disable();
+    if (this.showGui) {
+      this.gui = new GUI({ autoPlace: false, title: "Time Of Day", width: 280 });
+      this.gui.domElement.classList.add("time-gui");
+      document.body.appendChild(this.gui.domElement);
+      this.gui.add(this.state, "autoCycle").name("Auto Cycle");
+      this.gui.add(this.state, "hour", 0, 24, 0.01).name("Hour").listen();
+      this.gui.add(this.state, "dayLengthSeconds", 40, 480, 1).name("Day Length (s)");
+      this.gui.add(this.state, "phase").name("Phase").listen().disable();
+    } else {
+      this.gui = null;
+    }
 
     this.apply(this.camera.position, 0);
   }

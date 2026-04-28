@@ -17,9 +17,10 @@ function roundTo(value, decimals = 0) {
 }
 
 export class PerformanceController {
-  constructor({ renderer, getLoadedChunkCount }) {
+  constructor({ renderer, getLoadedChunkCount, showGui = true }) {
     this.renderer = renderer;
     this.getLoadedChunkCount = getLoadedChunkCount;
+    this.showGui = showGui;
     this.smoothedFrameMs = 16.7;
     this.sampleElapsed = 0;
     this.sampleFrames = 0;
@@ -34,6 +35,11 @@ export class PerformanceController {
       dpr: renderer.getPixelRatio(),
       heapMb: 0
     };
+
+    if (!this.showGui) {
+      this.gui = null;
+      return;
+    }
 
     this.gui = new GUI({ autoPlace: false, title: "Performance", width: 270 });
     this.gui.domElement.classList.add("performance-gui");
