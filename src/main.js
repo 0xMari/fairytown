@@ -222,6 +222,10 @@ async function bootstrap() {
   sunLight.shadow.camera.bottom = -60;
   scene.add(sunLight);
 
+  const moonLight = new THREE.DirectionalLight("#dce8ff", 0.25);
+  moonLight.position.set(-18, 24, -12);
+  scene.add(moonLight);
+
   const fairyLight = new THREE.PointLight("#fff1a8", 1.7, 22, 2);
   fairyLight.position.set(0, 0, 0);
   camera.add(fairyLight);
@@ -232,6 +236,7 @@ async function bootstrap() {
     renderer,
     camera,
     sunLight,
+    moonLight,
     hemiLight,
     fairyLight,
     showGui: IS_DEBUG_ROUTE

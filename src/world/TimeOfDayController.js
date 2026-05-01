@@ -12,27 +12,27 @@ const STAR_FIELD_DISTANCE = 330;
 const STAR_COUNT = 520;
 
 const SKY_COLOR_STOPS = [
-  { hour: 0, value: "#09121f" },
-  { hour: 4.5, value: "#203360" },
-  { hour: 6.2, value: "#f3b4ca" },
-  { hour: 7.2, value: "#ffd5b8" },
-  { hour: 9, value: "#9fd9ff" },
-  { hour: 13, value: "#87ceeb" },
-  { hour: 17, value: "#9bcdf7" },
-  { hour: 18.4, value: "#ffb39e" },
-  { hour: 19.3, value: "#8c75b8" },
-  { hour: 21.2, value: "#16284d" },
-  { hour: 24, value: "#09121f" }
+  { hour: 0, value: "#02040a" },
+  { hour: 4.5, value: "#0b1424" },
+  { hour: 6.2, value: "#6b4d5e" },
+  { hour: 7.2, value: "#e5c1f5" },
+  { hour: 9, value: "#95daf0" },
+  { hour: 13, value: "#b0d8e8" },
+  { hour: 17, value: "#94b9d1" },
+  { hour: 18.4, value: "#d18a66" },
+  { hour: 19.3, value: "#3a415a" },
+  { hour: 21.2, value: "#080d1a" },
+  { hour: 24, value: "#02040a" }
 ];
 
 const FOG_COLOR_STOPS = [
-  { hour: 0, value: "#101724" },
-  { hour: 5.8, value: "#c49ed2" },
-  { hour: 7.2, value: "#ffe0d4" },
-  { hour: 12, value: "#f4fbff" },
-  { hour: 18.1, value: "#ffc9bf" },
-  { hour: 20.4, value: "#635e96" },
-  { hour: 24, value: "#101724" }
+  { hour: 0, value: "#010307" },
+  { hour: 5.8, value: "#3a354d" },
+  { hour: 7.2, value: "#c9b09a" },
+  { hour: 12, value: "#cfdce3" },
+  { hour: 18.1, value: "#9c7a6f" },
+  { hour: 20.4, value: "#1a1e2b" },
+  { hour: 24, value: "#010307" }
 ];
 
 const HEMI_SKY_STOPS = [
@@ -46,20 +46,20 @@ const HEMI_SKY_STOPS = [
 ];
 
 const HEMI_GROUND_STOPS = [
-  { hour: 0, value: "#0d1520" },
-  { hour: 6.3, value: "#5d4b58" },
-  { hour: 9, value: "#7ba985" },
-  { hour: 13, value: "#88a77d" },
-  { hour: 18.4, value: "#6b5055" },
-  { hour: 21, value: "#111b28" },
-  { hour: 24, value: "#0d1520" }
+  { hour: 0, value: "#040702" },
+  { hour: 6.3, value: "#262b1a" },
+  // { hour: 9, value: "#7ba985" },
+  { hour: 13, value: "#354221" },
+  { hour: 18.4, value: "#1a210f" },
+  // { hour: 21, value: "#111b28" },
+  { hour: 24, value: "#040702" }
 ];
 
 const SUN_COLOR_STOPS = [
   { hour: 0, value: "#ffb37a" },
   { hour: 6, value: "#ff9a73" },
   { hour: 8, value: "#ffe6a8" },
-  { hour: 13, value: "#fff7cf" },
+  { hour: 13, value: "#fffdf2" },
   { hour: 18, value: "#ff9a73" },
   { hour: 24, value: "#ffb37a" }
 ];
@@ -273,11 +273,21 @@ function createStarField() {
 }
 
 export class TimeOfDayController {
-  constructor({ scene, renderer, camera, sunLight, hemiLight, fairyLight, showGui = true }) {
+  constructor({
+    scene,
+    renderer,
+    camera,
+    sunLight,
+    moonLight,
+    hemiLight,
+    fairyLight,
+    showGui = true
+  }) {
     this.scene = scene;
     this.renderer = renderer;
     this.camera = camera;
     this.sunLight = sunLight;
+    this.moonLight = moonLight;
     this.hemiLight = hemiLight;
     this.fairyLight = fairyLight;
     this.showGui = showGui;
@@ -297,6 +307,7 @@ export class TimeOfDayController {
     this.sunDirection = new THREE.Vector3();
     this.moonDirection = new THREE.Vector3();
     this.sunOffset = new THREE.Vector3();
+    this.moonOffset = new THREE.Vector3();
     this.sunDiscOffset = new THREE.Vector3();
     this.moonDiscOffset = new THREE.Vector3();
     this.elapsedTime = 0;
@@ -317,6 +328,7 @@ export class TimeOfDayController {
     this.scene.add(this.moonGroup);
     this.scene.add(this.starField);
     this.scene.add(this.sunLight.target);
+    this.scene.add(this.moonLight.target);
 
     if (this.showGui) {
       this.gui = new GUI({ autoPlace: false, title: "Time Of Day", width: 280 });
@@ -379,6 +391,8 @@ export class TimeOfDayController {
     sampleColorStops(MOON_COLOR_STOPS, hour, this.moonColor);
     this.sunLight.color.copy(this.sunColor);
     this.sunLight.intensity = THREE.MathUtils.lerp(0.04, 2.25, daylight);
+    this.moonLight.color.copy(this.moonColor);
+    this.moonLight.intensity = THREE.MathUtils.lerp(0, 0.52, moonVisibility);
 
     this.renderer.toneMappingExposure = sampleNumberStops(EXPOSURE_STOPS, hour);
     this.fairyLight.intensity = sampleNumberStops(FAIRY_LIGHT_STOPS, hour);
@@ -395,6 +409,11 @@ export class TimeOfDayController {
     this.sunLight.position.copy(this.focusPoint).add(this.sunOffset);
     this.sunLight.target.position.copy(this.focusPoint);
     this.sunLight.target.updateMatrixWorld();
+
+    this.moonOffset.copy(this.moonDirection).multiplyScalar(SUN_ORBIT_RADIUS);
+    this.moonLight.position.copy(this.focusPoint).add(this.moonOffset);
+    this.moonLight.target.position.copy(this.focusPoint);
+    this.moonLight.target.updateMatrixWorld();
 
     this.sunDiscOffset.copy(this.sunDirection).multiplyScalar(SUN_DISC_DISTANCE);
     this.sunGroup.position.copy(cameraPosition).add(this.sunDiscOffset);
