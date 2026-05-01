@@ -244,10 +244,6 @@ function createSpawnDensityEvaluator(type) {
         : 0.03;
     }
 
-    if (assetName === "stump") {
-      return THREE.MathUtils.lerp(0.02, 0.58, splat.gray) * THREE.MathUtils.lerp(0.45, 1.05, forest);
-    }
-
     if (assetName === "glowWisp") {
       return type === "crystal"
         ? THREE.MathUtils.lerp(0.5, 1.8, crystal)
@@ -283,7 +279,6 @@ export const PROCEDURAL_BIOMES = {
       sapling: { count: [5, 10], scale: [0.72, 1.16] },
       fernPatch: { count: [5, 10], scale: [0.76, 1.18] },
       flowerSpray: { count: [24, 44], scale: [0.7, 1.2] },
-      stump: { count: [2, 5], scale: [0.7, 1.15] },
       glowWisp: { count: [2, 4], scale: [0.9, 1.25] }
     },
     getSpawnDensity: createSpawnDensityEvaluator("meadow"),
@@ -303,7 +298,6 @@ export const PROCEDURAL_BIOMES = {
       sapling: { count: [5, 10], scale: [0.75, 1.22] },
       fernPatch: { count: [7, 14], scale: [0.78, 1.28] },
       mushroomBloom: { count: [18, 32], scale: [0.7, 1.45] },
-      stump: { count: [2, 5], scale: [0.72, 1.2] },
       glowWisp: { count: [3, 6], scale: [0.88, 1.24] }
     },
     getSpawnDensity: createSpawnDensityEvaluator("mushrooms"),
@@ -323,7 +317,6 @@ export const PROCEDURAL_BIOMES = {
       fernPatch: { count: [4, 8], scale: [0.72, 1.14] },
       flowerSpray: { count: [4, 10], scale: [0.72, 1.1] },
       crystalBloom: { count: [16, 28], scale: [0.72, 1.42] },
-      stump: { count: [1, 3], scale: [0.62, 1.05] },
       glowWisp: { count: [4, 7], scale: [0.88, 1.3] }
     },
     getSpawnDensity: createSpawnDensityEvaluator("crystal"),

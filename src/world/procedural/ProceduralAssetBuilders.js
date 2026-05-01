@@ -253,49 +253,6 @@ function buildMushroomBloom({ rng }) {
   return { instances };
 }
 
-function buildStump({ rng }) {
-  const instances = [];
-  const height = randomBetween(rng, 0.42, 0.9);
-  const radius = randomBetween(rng, 0.28, 0.56);
-  const barkColor = randomChoice(rng, BARK_COLORS);
-
-  addInstance(
-    instances,
-    "bark",
-    createTransformMatrix({
-      position: [0, height * 0.5, 0],
-      rotation: [randomBetween(rng, -0.05, 0.05), rng() * Math.PI * 2, randomBetween(rng, -0.05, 0.05)],
-      scale: [radius, height, radius]
-    }),
-    barkColor
-  );
-
-  if (rng() > 0.42) {
-    addInstance(
-      instances,
-      "mushroomStem",
-      createTransformMatrix({
-        position: [radius * 0.72, height * 0.48, randomBetween(rng, -radius * 0.35, radius * 0.35)],
-        rotation: [randomBetween(rng, -0.22, 0.22), rng() * Math.PI * 2, randomBetween(rng, -0.22, 0.22)],
-        scale: [0.045, height * 0.36, 0.045]
-      }),
-      "#eadfc2"
-    );
-    addInstance(
-      instances,
-      "mushroomCap",
-      createTransformMatrix({
-        position: [radius * 0.72, height * 0.72, randomBetween(rng, -radius * 0.35, radius * 0.35)],
-        rotation: [0, rng() * Math.PI * 2, 0],
-        scale: [0.16, 0.045, 0.16]
-      }),
-      randomChoice(rng, MUSHROOM_CAP_COLORS)
-    );
-  }
-
-  return { instances };
-}
-
 function buildRootArch({ rng }) {
   const instances = [];
   const barkColor = randomChoice(rng, BARK_COLORS);
@@ -529,9 +486,6 @@ export const PROCEDURAL_ASSET_BUILDERS = {
     });
 
     return modelInstances ? { instances: modelInstances } : null;
-  },
-  stump({ rng }) {
-    return buildStump({ rng });
   },
   rootArch({ rng }) {
     return buildRootArch({ rng });
