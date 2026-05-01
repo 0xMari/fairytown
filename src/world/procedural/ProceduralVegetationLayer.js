@@ -1,12 +1,6 @@
 import * as THREE from "three";
 import { InstanceBatchCollector } from "../InstanceBatchCollector.js";
-import {
-  addBucketInstance,
-  buildBucketGroup,
-  createTransformMatrix,
-  randomBetween,
-  randomChoice
-} from "./ProceduralInstancing.js";
+import { randomBetween } from "./ProceduralInstancing.js";
 import {
   getAncientForestFactor,
   getCrystalFactor,
@@ -16,8 +10,11 @@ import {
   smoothstep
 } from "./ProceduralFields.js";
 
-const MOSS_COLORS = ["#426f2f", "#5f8739", "#75a149", "#9ab65a"];
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
+const TEMP_NORMAL = new THREE.Vector3();
+const TEMP_ALIGNMENT = new THREE.Quaternion();
+const TEMP_TWIST = new THREE.Quaternion();
+const TEMP_SCALE = new THREE.Vector3(1, 1, 1);
 
 function getGroundBiomeWeights({ biomeKey, natureBiomeKey, getBiomeWeightsAtPosition, worldX, worldZ }) {
   const weights = getBiomeWeightsAtPosition?.(worldX, worldZ) ?? {
@@ -37,20 +34,28 @@ function getGroundBiomeWeights({ biomeKey, natureBiomeKey, getBiomeWeightsAtPosi
   };
 }
 
-function addMossPillow(buckets, rng, x, y, z, scale, color) {
-  addBucketInstance(
-    buckets,
-    "mossBlob",
-    createTransformMatrix({
-      position: [x, y + 0.06 * scale, z],
-      rotation: [rng() * Math.PI, rng() * Math.PI * 2, rng() * Math.PI],
-      scale: [
-        randomBetween(rng, 0.48, 1.35) * scale,
-        randomBetween(rng, 0.08, 0.22) * scale,
-        randomBetween(rng, 0.48, 1.2) * scale
-      ]
-    }),
-    color
+function getTerrainNormalAtLocalPosition(terrain, localX, localZ, sampleDistance = 1.6) {
+  const centerHeight = terrain?.getHeightAtLocalPosition?.(localX, localZ) ?? 0;
+  const left = terrain?.getHeightAtLocalPosition?.(localX - sampleDistance, localZ) ?? centerHeight;
+  const right = terrain?.getHeightAtLocalPosition?.(localX + sampleDistance, localZ) ?? centerHeight;
+  const back = terrain?.getHeightAtLocalPosition?.(localX, localZ - sampleDistance) ?? centerHeight;
+  const forward = terrain?.getHeightAtLocalPosition?.(localX, localZ + sampleDistance) ?? centerHeight;
+
+  return TEMP_NORMAL
+    .set(left - right, sampleDistance * 2, back - forward)
+    .normalize()
+    .lerp(Y_AXIS, 0.24)
+    .normalize();
+}
+
+function createTerrainAlignedMatrix({ rng, x, y, z, normal }) {
+  TEMP_ALIGNMENT.setFromUnitVectors(Y_AXIS, normal);
+  TEMP_TWIST.setFromAxisAngle(normal, rng() * Math.PI * 2).multiply(TEMP_ALIGNMENT);
+
+  return new THREE.Matrix4().compose(
+    new THREE.Vector3(x, y, z),
+    TEMP_TWIST,
+    TEMP_SCALE
   );
 }
 
@@ -107,12 +112,12 @@ export class ProceduralVegetationLayer {
     lodFactor = 1
   }) {
     const group = new THREE.Group();
-    const buckets = new Map();
     const plantCollector = new InstanceBatchCollector();
     const grassLibrary = assetContext?.procedural?.grasses;
     const fernLibrary = assetContext?.procedural?.ferns;
     const flowerLibrary = assetContext?.procedural?.flowers;
     const crystalLibrary = assetContext?.procedural?.crystals;
+    const mossyRockLibrary = assetContext?.procedural?.mossyRocks;
     const halfSize = chunkSize * 0.5;
     const lodDensity = THREE.MathUtils.clamp(lodFactor, 0.38, 1.15);
     const spacing = THREE.MathUtils.lerp(3.2, 1.45, lodDensity);
@@ -146,6 +151,7 @@ export class ProceduralVegetationLayer {
         const meadow = weights.meadow ?? 0;
         const mushrooms = weights.mushrooms ?? 0;
         const crystal = weights.crystal ?? 0;
+        const canPlaceMossyRocks = biomeKey === "meadow" || biomeKey === "mushrooms";
         const glade = getGladeFactor(worldX, worldZ, seed);
         const forest = getAncientForestFactor(worldX, worldZ, seed);
         const moss = getMossFactor(worldX, worldZ, seed);
@@ -163,9 +169,11 @@ export class ProceduralVegetationLayer {
           (mushrooms * 0.72 + meadow * forest * 0.38 + crystal * 0.2) *
           (splat.white * 0.36 + splat.gray * 0.18) *
           dryFactor;
-        const mossDensity =
-          (mushrooms * (0.46 + moss * 0.86) + meadow * forest * 0.24) *
-          (splat.white * 1.08 + splat.gray * 0.24) *
+        const mossyRockDensity =
+          (mushrooms * (0.3 + moss * 0.62) + meadow * forest * 0.22) *
+          (splat.white * 0.54 + splat.gray * 0.18) *
+          (canPlaceMossyRocks ? 1 : 0) *
+          (1 - crystal) *
           dryFactor;
         const flowerDensity = meadow * splat.gray * glade * (0.45 + (1 - forest) * 0.45) * dryFactor;
         const crystalDensity = crystal * crystalVein * (splat.white * 0.45 + splat.gray * 0.82) * dryFactor;
@@ -209,9 +217,25 @@ export class ProceduralVegetationLayer {
           acceptedSamples += 1;
         }
 
-        if (rng() < mossDensity * 0.55) {
-          addMossPillow(buckets, rng, localX, groundHeight, localZ, scale, randomChoice(rng, MOSS_COLORS));
-          acceptedSamples += 1;
+        if (rng() < mossyRockDensity * 0.035) {
+          const rockInstances = mossyRockLibrary?.createSingleInstances?.(rng, {
+            scaleRange: [0.72 * scale, 1.28 * scale],
+            tilt: 0.1
+          });
+
+          if (rockInstances) {
+            const terrainNormal = getTerrainNormalAtLocalPosition(terrain, localX, localZ);
+            const rootMatrix = createTerrainAlignedMatrix({
+              rng,
+              x: localX,
+              y: groundHeight,
+              z: localZ,
+              normal: terrainNormal
+            });
+
+            plantCollector.queue(rockInstances, rootMatrix);
+            acceptedSamples += 1;
+          }
         }
 
         if (
@@ -253,8 +277,6 @@ export class ProceduralVegetationLayer {
       }
     }
 
-    const groundCover = buildBucketGroup(buckets);
-    group.add(groundCover);
     plantCollector.flushInto(group);
 
     return group;

@@ -12,6 +12,7 @@ import {
   smoothstep
 } from "./ProceduralFields.js";
 import { CrystalModelLibrary } from "./CrystalModelLibrary.js";
+import { MossyRockLibrary } from "./MossyRockLibrary.js";
 import { SpottedMushroomLibrary } from "./SpottedMushroomLibrary.js";
 import { BeechFernLibrary } from "./vegetation/BeechFernLibrary.js";
 import { GroundFlowerLibrary } from "./vegetation/GroundFlowerLibrary.js";
@@ -243,12 +244,6 @@ function createSpawnDensityEvaluator(type) {
         : 0.03;
     }
 
-    if (assetName === "stoneCluster") {
-      return type === "crystal"
-        ? THREE.MathUtils.lerp(0.35, 1.3, crystal)
-        : THREE.MathUtils.lerp(0.1, 0.86, splat.gray);
-    }
-
     if (assetName === "stump") {
       return THREE.MathUtils.lerp(0.02, 0.58, splat.gray) * THREE.MathUtils.lerp(0.45, 1.05, forest);
     }
@@ -289,7 +284,6 @@ export const PROCEDURAL_BIOMES = {
       fernPatch: { count: [5, 10], scale: [0.76, 1.18] },
       flowerSpray: { count: [24, 44], scale: [0.7, 1.2] },
       stump: { count: [2, 5], scale: [0.7, 1.15] },
-      stoneCluster: { count: [2, 4], scale: [0.55, 1.1] },
       glowWisp: { count: [2, 4], scale: [0.9, 1.25] }
     },
     getSpawnDensity: createSpawnDensityEvaluator("meadow"),
@@ -310,7 +304,6 @@ export const PROCEDURAL_BIOMES = {
       fernPatch: { count: [7, 14], scale: [0.78, 1.28] },
       mushroomBloom: { count: [18, 32], scale: [0.7, 1.45] },
       stump: { count: [2, 5], scale: [0.72, 1.2] },
-      stoneCluster: { count: [2, 5], scale: [0.6, 1.1] },
       glowWisp: { count: [3, 6], scale: [0.88, 1.24] }
     },
     getSpawnDensity: createSpawnDensityEvaluator("mushrooms"),
@@ -331,7 +324,6 @@ export const PROCEDURAL_BIOMES = {
       flowerSpray: { count: [4, 10], scale: [0.72, 1.1] },
       crystalBloom: { count: [16, 28], scale: [0.72, 1.42] },
       stump: { count: [1, 3], scale: [0.62, 1.05] },
-      stoneCluster: { count: [6, 12], scale: [0.7, 1.3] },
       glowWisp: { count: [4, 7], scale: [0.88, 1.3] }
     },
     getSpawnDensity: createSpawnDensityEvaluator("crystal"),
@@ -363,6 +355,7 @@ export function createProceduralAssetContext() {
     vegetation: new ProceduralVegetationLayer(),
     mushrooms: new SpottedMushroomLibrary(),
     crystals: new CrystalModelLibrary(),
+    mossyRocks: new MossyRockLibrary(),
     ferns: new BeechFernLibrary(),
     grasses: new GroundGrassLibrary(),
     flowers: new GroundFlowerLibrary(),
@@ -375,6 +368,7 @@ export async function loadProceduralAssets(assetContext, renderer) {
     assetContext.terrain.load(renderer),
     assetContext.mushrooms.load(renderer),
     assetContext.crystals.load(renderer),
+    assetContext.mossyRocks.load(renderer),
     assetContext.ferns.load(renderer),
     assetContext.grasses.load(renderer),
     assetContext.flowers.load(renderer),

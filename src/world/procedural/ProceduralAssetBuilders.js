@@ -53,36 +53,6 @@ function addLeafBlob(instances, rng, position, scale, color, rotationOffset = 0)
   );
 }
 
-function addMossPadsOnTrunk(instances, rng, height, radius) {
-  const mossCount = 4 + Math.floor(rng() * 7);
-
-  for (let index = 0; index < mossCount; index += 1) {
-    const angle = rng() * Math.PI * 2;
-    const y = randomBetween(rng, height * 0.05, height * 0.74);
-    const sideRadius = radius * randomBetween(rng, 0.78, 1.16);
-    const position = [
-      Math.cos(angle) * sideRadius,
-      y,
-      Math.sin(angle) * sideRadius
-    ];
-
-    addInstance(
-      instances,
-      "mossBlob",
-      createTransformMatrix({
-        position,
-        rotation: [randomBetween(rng, -0.8, 0.8), angle, randomBetween(rng, -0.8, 0.8)],
-        scale: [
-          randomBetween(rng, 0.18, 0.42) * radius,
-          randomBetween(rng, 0.05, 0.11) * radius,
-          randomBetween(rng, 0.2, 0.5) * radius
-        ]
-      }),
-      randomChoice(rng, MOSS_COLORS)
-    );
-  }
-}
-
 function addHangingVines(instances, rng, anchor, count, lengthScale = 1) {
   for (let index = 0; index < count; index += 1) {
     const offset = new THREE.Vector3(
@@ -140,8 +110,6 @@ function buildBranchyTree({ rng, mood = "elder" }) {
       barkColor
     );
   }
-
-  addMossPadsOnTrunk(instances, rng, height, baseRadius);
 
   const branchCount = mood === "conifer" ? 9 + Math.floor(rng() * 4) : 7 + Math.floor(rng() * 5);
 
@@ -285,30 +253,6 @@ function buildMushroomBloom({ rng }) {
   return { instances };
 }
 
-function buildStoneCluster({ rng }) {
-  const instances = [];
-  const count = 2 + Math.floor(rng() * 5);
-
-  for (let index = 0; index < count; index += 1) {
-    const angle = rng() * Math.PI * 2;
-    const radius = Math.sqrt(rng()) * 1.1;
-    const scale = randomBetween(rng, 0.25, 0.78);
-
-    addInstance(
-      instances,
-      "stone",
-      createTransformMatrix({
-        position: [Math.cos(angle) * radius, scale * 0.24, Math.sin(angle) * radius],
-        rotation: [rng() * Math.PI, rng() * Math.PI * 2, rng() * Math.PI],
-        scale: [scale * randomBetween(rng, 0.8, 1.5), scale * randomBetween(rng, 0.36, 0.75), scale]
-      }),
-      randomChoice(rng, ["#596357", "#70786b", "#4b574b", "#7d826f"])
-    );
-  }
-
-  return { instances };
-}
-
 function buildStump({ rng }) {
   const instances = [];
   const height = randomBetween(rng, 0.42, 0.9);
@@ -324,17 +268,6 @@ function buildStump({ rng }) {
       scale: [radius, height, radius]
     }),
     barkColor
-  );
-
-  addInstance(
-    instances,
-    "mossBlob",
-    createTransformMatrix({
-      position: [randomBetween(rng, -0.08, 0.08), height + 0.03, randomBetween(rng, -0.08, 0.08)],
-      rotation: [rng() * Math.PI, rng() * Math.PI * 2, rng() * Math.PI],
-      scale: [radius * randomBetween(rng, 0.64, 0.96), radius * randomBetween(rng, 0.06, 0.12), radius * randomBetween(rng, 0.64, 0.96)]
-    }),
-    randomChoice(rng, MOSS_COLORS)
   );
 
   if (rng() > 0.42) {
@@ -379,23 +312,6 @@ function buildRootArch({ rng }) {
 
   for (let index = 0; index < points.length - 1; index += 1) {
     addBranch(instances, points[index], points[index + 1], radius, radius * 0.9, barkColor);
-  }
-
-  for (let index = 0; index < 5; index += 1) {
-    const point = points[1 + Math.floor(rng() * 3)].clone();
-    point.x += randomBetween(rng, -0.34, 0.34);
-    point.y += randomBetween(rng, -0.12, 0.28);
-    point.z += randomBetween(rng, -0.18, 0.18);
-    addInstance(
-      instances,
-      "mossBlob",
-      createTransformMatrix({
-        position: [point.x, point.y, point.z],
-        rotation: [rng() * Math.PI, rng() * Math.PI * 2, rng() * Math.PI],
-        scale: [randomBetween(rng, 0.28, 0.58), randomBetween(rng, 0.08, 0.16), randomBetween(rng, 0.24, 0.52)]
-      }),
-      randomChoice(rng, MOSS_COLORS)
-    );
   }
 
   addInstance(
@@ -613,9 +529,6 @@ export const PROCEDURAL_ASSET_BUILDERS = {
     });
 
     return modelInstances ? { instances: modelInstances } : null;
-  },
-  stoneCluster({ rng }) {
-    return buildStoneCluster({ rng });
   },
   stump({ rng }) {
     return buildStump({ rng });

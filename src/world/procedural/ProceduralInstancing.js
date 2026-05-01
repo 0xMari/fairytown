@@ -103,13 +103,11 @@ function createMaterial({
 const cylinderGeometry = new THREE.CylinderGeometry(1, 1, 1, 8);
 const thinCylinderGeometry = new THREE.CylinderGeometry(1, 1, 1, 6);
 const leafBlobGeometry = new THREE.DodecahedronGeometry(1, 1);
-const mossBlobGeometry = new THREE.IcosahedronGeometry(1, 1);
 const grassBladeGeometry = createBladeGeometry({ width: 0.16, height: 1, bend: 0.08 });
 const fernBladeGeometry = createBladeGeometry({ width: 0.34, height: 1, bend: 0.18 });
 const leafCardGeometry = createLeafCardGeometry();
 const flowerHeadGeometry = new THREE.DodecahedronGeometry(1, 0);
 const mushroomCapGeometry = new THREE.SphereGeometry(1, 12, 8);
-const stoneGeometry = new THREE.DodecahedronGeometry(1, 0);
 const glowGeometry = new THREE.SphereGeometry(1, 10, 8);
 
 const barkMaterial = createMaterial({
@@ -137,12 +135,6 @@ const leafCardMaterial = createMaterial({
   side: THREE.DoubleSide,
   emissive: "#2d4a1d",
   emissiveIntensity: 0.3
-});
-const mossMaterial = createMaterial({
-  color: "#4d7d31",
-  roughness: 1,
-  emissive: "#263f18",
-  emissiveIntensity: 0.28
 });
 const grassMaterial = createMaterial({
   color: "#7dad4f",
@@ -179,10 +171,6 @@ const mushroomCapMaterial = createMaterial({
   roughness: 0.72,
   emissive: "#ffb68d",
   emissiveIntensity: 0.08
-});
-const stoneMaterial = createMaterial({
-  color: "#6d7468",
-  roughness: 0.98
 });
 const glowMaterial = createMaterial({
   color: "#fff6aa",
@@ -223,12 +211,6 @@ const BATCH_DEFINITIONS = {
     castShadow: false,
     receiveShadow: false
   },
-  mossBlob: {
-    geometry: mossBlobGeometry,
-    material: mossMaterial,
-    castShadow: false,
-    receiveShadow: false
-  },
   grassBlade: {
     geometry: grassBladeGeometry,
     material: grassMaterial,
@@ -264,12 +246,6 @@ const BATCH_DEFINITIONS = {
     material: mushroomCapMaterial,
     castShadow: false,
     receiveShadow: false
-  },
-  stone: {
-    geometry: stoneGeometry,
-    material: stoneMaterial,
-    castShadow: true,
-    receiveShadow: true
   },
   glowOrb: {
     geometry: glowGeometry,
