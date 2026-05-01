@@ -11,6 +11,7 @@ import {
   getSplatMapAt,
   smoothstep
 } from "./ProceduralFields.js";
+import { CrystalModelLibrary } from "./CrystalModelLibrary.js";
 import { SpottedMushroomLibrary } from "./SpottedMushroomLibrary.js";
 import { BeechFernLibrary } from "./vegetation/BeechFernLibrary.js";
 import { GroundFlowerLibrary } from "./vegetation/GroundFlowerLibrary.js";
@@ -361,6 +362,7 @@ export function createProceduralAssetContext() {
     terrain: new ProceduralTerrainMaterial(),
     vegetation: new ProceduralVegetationLayer(),
     mushrooms: new SpottedMushroomLibrary(),
+    crystals: new CrystalModelLibrary(),
     ferns: new BeechFernLibrary(),
     grasses: new GroundGrassLibrary(),
     flowers: new GroundFlowerLibrary(),
@@ -372,6 +374,7 @@ export async function loadProceduralAssets(assetContext, renderer) {
   await Promise.all([
     assetContext.terrain.load(renderer),
     assetContext.mushrooms.load(renderer),
+    assetContext.crystals.load(renderer),
     assetContext.ferns.load(renderer),
     assetContext.grasses.load(renderer),
     assetContext.flowers.load(renderer),

@@ -75,12 +75,6 @@ function createLeafCardGeometry() {
   return geometry;
 }
 
-function createCrystalGeometry() {
-  const geometry = new THREE.ConeGeometry(0.55, 1.35, 5, 1);
-  geometry.translate(0, 0.675, 0);
-  return geometry;
-}
-
 function createMaterial({
   color,
   roughness = 0.9,
@@ -115,7 +109,6 @@ const fernBladeGeometry = createBladeGeometry({ width: 0.34, height: 1, bend: 0.
 const leafCardGeometry = createLeafCardGeometry();
 const flowerHeadGeometry = new THREE.DodecahedronGeometry(1, 0);
 const mushroomCapGeometry = new THREE.SphereGeometry(1, 12, 8);
-const crystalGeometry = createCrystalGeometry();
 const stoneGeometry = new THREE.DodecahedronGeometry(1, 0);
 const glowGeometry = new THREE.SphereGeometry(1, 10, 8);
 
@@ -186,15 +179,6 @@ const mushroomCapMaterial = createMaterial({
   roughness: 0.72,
   emissive: "#ffb68d",
   emissiveIntensity: 0.08
-});
-const crystalMaterial = createMaterial({
-  color: "#a8dcff",
-  roughness: 0.16,
-  metalness: 0.02,
-  emissive: "#8fd8ff",
-  emissiveIntensity: 0.55,
-  transparent: true,
-  opacity: 0.86
 });
 const stoneMaterial = createMaterial({
   color: "#6d7468",
@@ -280,13 +264,6 @@ const BATCH_DEFINITIONS = {
     material: mushroomCapMaterial,
     castShadow: false,
     receiveShadow: false
-  },
-  crystalShard: {
-    geometry: crystalGeometry,
-    material: crystalMaterial,
-    castShadow: false,
-    receiveShadow: false,
-    bloom: true
   },
   stone: {
     geometry: stoneGeometry,

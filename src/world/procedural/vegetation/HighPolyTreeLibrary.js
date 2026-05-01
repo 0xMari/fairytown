@@ -59,6 +59,28 @@ const TREE_MODEL_URLS = [
         normalMap: "CortexB_normal.png"
       }
     }
+  },
+  {
+    key: "oak-trees",
+    url: "/trees/oak_trees/scene.gltf",
+    targetHeight: 15,
+    fixedScale: 1,
+    rootScaleOverride: 1,
+    baseRadius: 1.6,
+    buryOffset: -0.08,
+    textureBase: "/trees/oak_trees/textures/",
+    maps: {
+      bark1: {
+        map: "bark1_baseColor.png",
+        normalMap: "bark1_normal.png",
+        roughnessMap: "bark1_metallicRoughness.png"
+      },
+      leaf1: {
+        map: "leaf1_baseColor.png",
+        normalMap: "leaf1_normal.png",
+        roughnessMap: "leaf1_metallicRoughness.png"
+      }
+    }
   }
 ];
 const TREE_TARGET_HEIGHT = 11.5;
@@ -133,7 +155,8 @@ function normalizeModel(root, definition) {
   const bounds = new THREE.Box3().setFromObject(content);
   const size = bounds.getSize(new THREE.Vector3());
   const center = bounds.getCenter(new THREE.Vector3());
-  const scale = size.y > 0 ? TREE_TARGET_HEIGHT / size.y : 1;
+  const targetHeight = definition.targetHeight ?? TREE_TARGET_HEIGHT;
+  const scale = size.y > 0 ? targetHeight / size.y : 1;
   const anchorY = getGroundAnchorY(content, bounds);
 
   content.position.x -= center.x * scale;
@@ -156,6 +179,8 @@ async function loadTreeTextures(definition) {
           const texture = await textureLoader.loadAsync(`${definition.textureBase}${filename}`);
           texture.colorSpace = slot === "map" ? THREE.SRGBColorSpace : THREE.NoColorSpace;
           texture.flipY = false;
+          texture.wrapS = THREE.RepeatWrapping;
+          texture.wrapT = THREE.RepeatWrapping;
 
           return [slot, texture];
         })
@@ -184,6 +209,8 @@ function applyModelTextures(root, texturesByMaterialName) {
 
       material.map = textureSet.map ?? material.map;
       material.normalMap = textureSet.normalMap ?? material.normalMap;
+      material.roughnessMap = textureSet.roughnessMap ?? material.roughnessMap;
+      material.metalnessMap = textureSet.metalnessMap ?? material.metalnessMap;
       material.color?.set?.("#ffffff");
       material.needsUpdate = true;
     });
@@ -306,6 +333,8 @@ export class HighPolyTreeLibrary {
           key: `${definition.key}-${index}`,
           fixedScale: definition.fixedScale ?? null,
           rootScaleOverride: definition.rootScaleOverride ?? null,
+          baseRadius: definition.baseRadius ?? 0.82,
+          targetHeight: definition.targetHeight ?? TREE_TARGET_HEIGHT,
           build
         };
       });
@@ -356,8 +385,8 @@ export class HighPolyTreeLibrary {
     return {
       instances,
       rootScaleOverride: variant.rootScaleOverride,
-      baseRadius: 0.82,
-      height: TREE_TARGET_HEIGHT
+      baseRadius: variant.baseRadius,
+      height: variant.targetHeight * (variant.fixedScale ?? 1)
     };
   }
 

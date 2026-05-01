@@ -17,7 +17,6 @@ import {
 } from "./ProceduralFields.js";
 
 const MOSS_COLORS = ["#426f2f", "#5f8739", "#75a149", "#9ab65a"];
-const CRYSTAL_COLORS = ["#b9ecff", "#d8c3ff", "#c4fff0", "#fff3af"];
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
 
 function getGroundBiomeWeights({ biomeKey, natureBiomeKey, getBiomeWeightsAtPosition, worldX, worldZ }) {
@@ -91,19 +90,6 @@ function addModelPatch({
   return true;
 }
 
-function addTinyCrystal(buckets, rng, x, y, z, scale) {
-  addBucketInstance(
-    buckets,
-    "crystalShard",
-    createTransformMatrix({
-      position: [x, y + 0.01, z],
-      rotation: [randomBetween(rng, -0.24, 0.24), rng() * Math.PI * 2, randomBetween(rng, -0.24, 0.24)],
-      scale: [randomBetween(rng, 0.1, 0.22) * scale, randomBetween(rng, 0.32, 0.78) * scale, randomBetween(rng, 0.1, 0.22) * scale]
-    }),
-    randomChoice(rng, CRYSTAL_COLORS)
-  );
-}
-
 export class ProceduralVegetationLayer {
   constructor() {}
 
@@ -126,6 +112,7 @@ export class ProceduralVegetationLayer {
     const grassLibrary = assetContext?.procedural?.grasses;
     const fernLibrary = assetContext?.procedural?.ferns;
     const flowerLibrary = assetContext?.procedural?.flowers;
+    const crystalLibrary = assetContext?.procedural?.crystals;
     const halfSize = chunkSize * 0.5;
     const lodDensity = THREE.MathUtils.clamp(lodFactor, 0.38, 1.15);
     const spacing = THREE.MathUtils.lerp(3.2, 1.45, lodDensity);
@@ -247,8 +234,21 @@ export class ProceduralVegetationLayer {
         }
 
         if (rng() < crystalDensity * 0.38) {
-          addTinyCrystal(buckets, rng, localX, groundHeight, localZ, randomBetween(rng, 0.75, 1.7));
-          acceptedSamples += 1;
+          const crystalInstances = crystalLibrary?.createSingleInstances?.(rng, {
+            scaleRange: [0.24 * scale, 0.68 * scale],
+            tilt: 0.14
+          });
+
+          if (crystalInstances) {
+            const rootMatrix = new THREE.Matrix4().compose(
+              new THREE.Vector3(localX, groundHeight, localZ),
+              new THREE.Quaternion().setFromAxisAngle(Y_AXIS, rng() * Math.PI * 2),
+              new THREE.Vector3(1, 1, 1)
+            );
+
+            plantCollector.queue(crystalInstances, rootMatrix);
+            acceptedSamples += 1;
+          }
         }
       }
     }

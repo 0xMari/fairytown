@@ -19,7 +19,6 @@ const MOSS_COLORS = ["#446f2b", "#5f8d32", "#7aa144", "#355629"];
 const LEAF_COLORS = ["#5f8d3d", "#739f4c", "#86b75c", "#3f6f38", "#a8c86f"];
 const SHADOW_LEAF_COLORS = ["#263f2a", "#314f30", "#3e6136", "#233721"];
 const MUSHROOM_CAP_COLORS = ["#d95c46", "#f08a4b", "#c94a62", "#f2b35f"];
-const CRYSTAL_COLORS = ["#aee6ff", "#d9b7ff", "#bcfff4", "#fff3a7"];
 
 function addInstance(instances, kind, matrix, color) {
   const instance = createProceduralInstance(kind, matrix, color);
@@ -280,30 +279,6 @@ function buildMushroomBloom({ rng }) {
         scale: [capRadius, randomBetween(rng, 0.08, 0.18), capRadius]
       }),
       randomChoice(rng, MUSHROOM_CAP_COLORS)
-    );
-  }
-
-  return { instances };
-}
-
-function buildCrystalBloom({ rng }) {
-  const instances = [];
-  const count = 3 + Math.floor(rng() * 5);
-
-  for (let index = 0; index < count; index += 1) {
-    const angle = rng() * Math.PI * 2;
-    const radius = Math.sqrt(rng()) * 0.82;
-    const height = randomBetween(rng, 0.55, 1.8);
-
-    addInstance(
-      instances,
-      "crystalShard",
-      createTransformMatrix({
-        position: [Math.cos(angle) * radius, 0, Math.sin(angle) * radius],
-        rotation: [randomBetween(rng, -0.22, 0.22), rng() * Math.PI * 2, randomBetween(rng, -0.22, 0.22)],
-        scale: [randomBetween(rng, 0.22, 0.46), height, randomBetween(rng, 0.22, 0.46)]
-      }),
-      randomChoice(rng, CRYSTAL_COLORS)
     );
   }
 
@@ -629,8 +604,15 @@ export const PROCEDURAL_ASSET_BUILDERS = {
 
     return buildMushroomBloom({ rng });
   },
-  crystalBloom({ rng }) {
-    return buildCrystalBloom({ rng });
+  crystalBloom({ rng, assetContext }) {
+    const modelInstances = assetContext?.procedural?.crystals?.createPatchInstances?.(rng, {
+      countRange: [2, 5],
+      radiusRange: [0.34, 1.18],
+      scaleRange: [0.62, 1.26],
+      tilt: 0.16
+    });
+
+    return modelInstances ? { instances: modelInstances } : null;
   },
   stoneCluster({ rng }) {
     return buildStoneCluster({ rng });
