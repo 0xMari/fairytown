@@ -33,13 +33,19 @@ export class ProceduralTerrainMaterial {
           "#include <common>",
           `#include <common>
 attribute float crystalWeight;
+attribute float meadowWeight;
+attribute float mushroomWeight;
 varying vec3 vProcWorldPosition;
+varying float vMeadowBiomeWeight;
+varying float vMushroomBiomeWeight;
 varying float vCrystalBiomeWeight;`
         )
         .replace(
           "#include <worldpos_vertex>",
           `#include <worldpos_vertex>
 vProcWorldPosition = worldPosition.xyz;
+vMeadowBiomeWeight = meadowWeight;
+vMushroomBiomeWeight = mushroomWeight;
 vCrystalBiomeWeight = crystalWeight;`
         );
 
@@ -48,6 +54,8 @@ vCrystalBiomeWeight = crystalWeight;`
           "#include <common>",
           `#include <common>
 varying vec3 vProcWorldPosition;
+varying float vMeadowBiomeWeight;
+varying float vMushroomBiomeWeight;
 varying float vCrystalBiomeWeight;
 uniform sampler2D uCloverBaseColorMap;
 uniform sampler2D uCloverRoughnessMap;
@@ -98,10 +106,14 @@ vec3 splat = procTerrainSplat(vProcWorldPosition.xz);
 vec3 cloverTexture = texture2D(uCloverBaseColorMap, terrainUv).rgb;
 vec3 mossTexture = texture2D(uMossBaseColorMap, terrainUv * 0.78 + vec2(0.17, 0.29)).rgb;
 vec3 rockTexture = texture2D(uRockBaseColorMap, terrainUv * 0.64 + vec2(-0.11, 0.23)).rgb;
+float rockLuma = dot(rockTexture, vec3(0.299, 0.587, 0.114));
+rockTexture = mix(vec3(rockLuma) * vec3(0.86, 0.9, 0.94), rockTexture, 0.18);
 vec3 pathTexture = vec3(0.21, 0.18, 0.12) * mix(0.74, 1.08, procFbm(vProcWorldPosition.xz * 0.09));
-vec3 nonCrystalTexture = mix(cloverTexture, mossTexture, splat.x);
-float crystalBlend = smoothstep(0.02, 0.48, vCrystalBiomeWeight);
-nonCrystalTexture = mix(nonCrystalTexture, pathTexture, splat.z);
+float nonCrystalTotal = max(vMeadowBiomeWeight + vMushroomBiomeWeight, 0.001);
+float mushroomBlend = smoothstep(0.08, 0.92, vMushroomBiomeWeight / nonCrystalTotal);
+vec3 nonCrystalTexture = mix(cloverTexture, mossTexture, mushroomBlend);
+float crystalBlend = smoothstep(0.52, 0.72, vCrystalBiomeWeight);
+nonCrystalTexture = mix(nonCrystalTexture, pathTexture, splat.z * 0.08 * (1.0 - crystalBlend));
 float broadMoss = procFbm(vProcWorldPosition.xz * 0.035);
 float fineMoss = procFbm(vProcWorldPosition.xz * 0.19 + vec2(12.4, -7.8));
 float rootShadow = procFbm(vProcWorldPosition.xz * 0.075 + vec2(80.0));
@@ -121,19 +133,21 @@ vec2 roughnessUv = vProcWorldPosition.xz / 8.5;
 vec3 roughnessSplat = procTerrainSplat(vProcWorldPosition.xz);
 float cloverRoughness = texture2D(uCloverRoughnessMap, roughnessUv).r;
 float mossRoughness = texture2D(uMossRoughnessMap, roughnessUv * 0.78 + vec2(0.17, 0.29)).r;
-float rockBlend = smoothstep(0.02, 0.48, vCrystalBiomeWeight);
+float rockBlend = smoothstep(0.52, 0.72, vCrystalBiomeWeight);
 float rockRoughness = texture2D(uRockOrmMap, roughnessUv * 0.64 + vec2(-0.11, 0.23)).g;
+float roughnessNonCrystalTotal = max(vMeadowBiomeWeight + vMushroomBiomeWeight, 0.001);
+float roughnessMushroomBlend = smoothstep(0.08, 0.92, vMushroomBiomeWeight / roughnessNonCrystalTotal);
 roughnessFactor = mix(
   roughnessFactor,
-  mix(cloverRoughness, mossRoughness, roughnessSplat.x),
+  mix(cloverRoughness, mossRoughness, roughnessMushroomBlend),
   0.62
 );
 roughnessFactor = mix(roughnessFactor, rockRoughness, rockBlend * 0.78);
-roughnessFactor = mix(roughnessFactor, 0.96, roughnessSplat.z * 0.75 * (1.0 - rockBlend));`
+roughnessFactor = mix(roughnessFactor, 0.96, roughnessSplat.z * 0.08 * (1.0 - rockBlend));`
         );
     };
 
-    this.material.customProgramCacheKey = () => "fairytown-procedural-terrain-v4";
+    this.material.customProgramCacheKey = () => "fairytown-procedural-terrain-v7";
   }
 
   async load(renderer) {

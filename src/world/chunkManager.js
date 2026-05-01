@@ -613,15 +613,9 @@ export class ChunkManager {
       groundColors[index * 3] = groundColor.r;
       groundColors[index * 3 + 1] = groundColor.g;
       groundColors[index * 3 + 2] = groundColor.b;
-      const rawCrystalWeight = biomeWeights.crystal ?? 0;
-      const effectiveCrystalWeight =
-        rawCrystalWeight > 0
-          ? Math.max(rawCrystalWeight, THREE.MathUtils.smoothstep(rawCrystalWeight, 0.02, 0.24) * 0.72)
-          : 0;
-
       meadowWeights[index] = biomeWeights.meadow ?? 0;
       mushroomWeights[index] = biomeWeights.mushrooms ?? 0;
-      crystalWeights[index] = effectiveCrystalWeight;
+      crystalWeights[index] = biomeWeights.crystal ?? 0;
       waterMasks[index] = waterMask;
       waterDepths[index] = waterDepth;
       maxWaterMask = Math.max(maxWaterMask, waterMask);

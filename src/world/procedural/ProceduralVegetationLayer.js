@@ -151,6 +151,7 @@ export class ProceduralVegetationLayer {
         const meadow = weights.meadow ?? 0;
         const mushrooms = weights.mushrooms ?? 0;
         const crystal = weights.crystal ?? 0;
+        const crystalPresence = smoothstep(0.52, 0.72, crystal);
         const canPlaceMossyRocks = biomeKey === "meadow" || biomeKey === "mushrooms";
         const glade = getGladeFactor(worldX, worldZ, seed);
         const forest = getAncientForestFactor(worldX, worldZ, seed);
@@ -173,10 +174,14 @@ export class ProceduralVegetationLayer {
           (mushrooms * (0.3 + moss * 0.62) + meadow * forest * 0.22) *
           (splat.white * 0.54 + splat.gray * 0.18) *
           (canPlaceMossyRocks ? 1 : 0) *
-          (1 - crystal) *
+          (1 - crystalPresence) *
           dryFactor;
         const flowerDensity = meadow * splat.gray * glade * (0.45 + (1 - forest) * 0.45) * dryFactor;
-        const crystalDensity = crystal * crystalVein * (splat.white * 0.45 + splat.gray * 0.82) * dryFactor;
+        const crystalDensity =
+          crystalPresence *
+          (0.32 + crystalVein * 0.78) *
+          (splat.white * 0.45 + splat.gray * 0.82) *
+          dryFactor;
         const scale = THREE.MathUtils.lerp(0.75, 1.45, moss * 0.55 + glade * 0.45);
 
         if (

@@ -9,7 +9,7 @@ export const BIOMES = PROCEDURAL_BIOMES;
 
 export const BIOME_SEQUENCE = PROCEDURAL_BIOME_SEQUENCE;
 const BIOME_THRESHOLDS = [1 / 3, 2 / 3];
-const BIOME_BLEND_WIDTH = 0.1;
+const BIOME_BLEND_WIDTH = 0.05;
 
 function getBiomeBlendValue(x, z, seed) {
   const broad = fbm2D(x / 240, z / 240, seed + 11, 4, 2, 0.5);
