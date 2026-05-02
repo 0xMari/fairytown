@@ -326,6 +326,26 @@ canvas {
   --string-color: #fff5d2;
 }
 
+.ssao-gui {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 13rem;
+  z-index: 15;
+  overflow: hidden;
+  border-radius: 1rem;
+  backdrop-filter: blur(14px);
+  box-shadow: 0 20px 40px rgba(19, 32, 47, 0.22);
+  --background-color: rgba(39, 45, 58, 0.78);
+  --title-background-color: rgba(31, 37, 50, 0.92);
+  --title-text-color: #fff9ef;
+  --text-color: #eef2ff;
+  --widget-color: rgba(255, 255, 255, 0.13);
+  --hover-color: rgba(255, 255, 255, 0.19);
+  --focus-color: rgba(255, 255, 255, 0.25);
+  --number-color: #bfe7ff;
+  --string-color: #fff5d2;
+}
+
 @media (max-width: 720px) {
   .entry-screen__card {
     padding: 1.25rem 1.1rem 1.1rem;
@@ -345,6 +365,12 @@ canvas {
   .performance-gui {
     left: 1rem;
     bottom: 1rem;
+    width: min(18rem, calc(100vw - 2rem));
+  }
+
+  .ssao-gui {
+    right: 1rem;
+    bottom: 12.5rem;
     width: min(18rem, calc(100vw - 2rem));
   }
 }

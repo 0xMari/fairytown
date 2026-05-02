@@ -3,10 +3,12 @@ import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
+import { SSAOPass } from "three/examples/jsm/postprocessing/SSAOPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import "./style.css";
 import { SELECTIVE_BLOOM_LAYER } from "./rendering/bloom.js";
 import { PerformanceController } from "./rendering/PerformanceController.js";
+import { SSAOController } from "./rendering/SSAOController.js";
 import { BIOMES } from "./world/biomes.js";
 import { ChunkManager } from "./world/chunkManager.js";
 import { FairyControls } from "./world/FairyControls.js";
@@ -19,6 +21,7 @@ import { TimeOfDayController } from "./world/TimeOfDayController.js";
 
 const MAX_RENDERER_PIXEL_RATIO = 1.25;
 const BLOOM_RESOLUTION_SCALE = 0.6;
+const SSAO_RESOLUTION_SCALE = 0.75;
 const WORLD_SEED = 83473;
 const WORLD_VIEW_RADIUS = 1;
 const WORLD_PRELOAD_RADIUS = 2;
@@ -297,6 +300,24 @@ async function bootstrap() {
   finalComposer.setPixelRatio(renderer.getPixelRatio());
   finalComposer.setSize(window.innerWidth, window.innerHeight);
 
+  const ssaoComposer = new EffectComposer(renderer);
+  const ssaoRenderPass = new RenderPass(scene, camera);
+  const ssaoPass = new SSAOPass(scene, camera, window.innerWidth, window.innerHeight, 16);
+  ssaoComposer.addPass(ssaoRenderPass);
+  ssaoComposer.addPass(ssaoPass);
+  ssaoComposer.addPass(new OutputPass());
+
+  const ssaoController = new SSAOController({
+    composer: ssaoComposer,
+    pass: ssaoPass,
+    renderer,
+    width: window.innerWidth,
+    height: window.innerHeight,
+    showGui: IS_DEBUG_ROUTE,
+    enabled: true,
+    resolutionScale: SSAO_RESOLUTION_SCALE
+  });
+
   function darkenNonBloomed(object) {
     if (!object.isMesh || bloomLayer.test(object.layers)) {
       return;
@@ -356,6 +377,8 @@ async function bootstrap() {
       scene.fog = originalFog;
 
       finalComposer.render();
+    } else if (ssaoController.isEnabled) {
+      ssaoComposer.render();
     } else {
       renderer.render(scene, camera);
     }
@@ -374,6 +397,7 @@ async function bootstrap() {
     finalComposer.setPixelRatio(renderer.getPixelRatio());
     bloomComposer.setSize(window.innerWidth, window.innerHeight);
     finalComposer.setSize(window.innerWidth, window.innerHeight);
+    ssaoController.resize(window.innerWidth, window.innerHeight);
   });
 }
 
