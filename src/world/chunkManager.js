@@ -28,6 +28,7 @@ const DEFAULT_CHUNK_UNLOAD_GRACE_SECONDS = 0.45;
 const DEFAULT_CENTER_CHUNK_LOD_FACTOR = 1.1;
 const DEFAULT_NEARBY_CHUNK_LOD_FACTOR = 0.68;
 const DEFAULT_POPULATION_REBUILD_LOD_DELTA = Number.POSITIVE_INFINITY;
+const DEFAULT_SHADOW_CAST_RING_DISTANCE = 1;
 
 function randomBetween(rng, min, max) {
   return min + (max - min) * rng();
@@ -53,6 +54,23 @@ function disposeInstanceBatchMaterials(object) {
   });
 }
 
+function rememberOriginalShadowState(mesh) {
+  if (mesh.userData.originalCastShadow === undefined) {
+    mesh.userData.originalCastShadow = mesh.castShadow;
+  }
+}
+
+function setGroupShadowCasting(object, shouldCastShadows) {
+  object?.traverse?.((child) => {
+    if (!child.isMesh) {
+      return;
+    }
+
+    rememberOriginalShadowState(child);
+    child.castShadow = shouldCastShadows ? child.userData.originalCastShadow : false;
+  });
+}
+
 export class ChunkManager {
   constructor(scene, options = {}) {
     this.scene = scene;
@@ -75,6 +93,8 @@ export class ChunkManager {
       options.nearbyChunkLodFactor ?? DEFAULT_NEARBY_CHUNK_LOD_FACTOR;
     this.populationRebuildLodDelta =
       options.populationRebuildLodDelta ?? DEFAULT_POPULATION_REBUILD_LOD_DELTA;
+    this.shadowCastRingDistance =
+      options.shadowCastRingDistance ?? DEFAULT_SHADOW_CAST_RING_DISTANCE;
     this.lastElapsedTime = 0;
     this.terrainWater = new TerrainWaterLibrary();
     this.biomeGroundColors = Object.fromEntries(
@@ -305,6 +325,7 @@ export class ChunkManager {
       );
 
       this.syncChunkPopulationForLod(chunk);
+      this.syncChunkShadowBudget(chunk);
 
       if (chunk.stage < chunk.targetStage && !chunk.isQueued) {
         this.enqueueChunkBuild(chunk);
@@ -333,6 +354,19 @@ export class ChunkManager {
     for (const updater of this.updaters) {
       updater.update(elapsedTime);
     }
+  }
+
+  syncChunkShadowBudget(chunk) {
+    const shouldCastShadows =
+      chunk.targetStage > 1 && chunk.ringDistance <= this.shadowCastRingDistance;
+
+    if (chunk.areDetailsShadowCasters === shouldCastShadows) {
+      return;
+    }
+
+    chunk.areDetailsShadowCasters = shouldCastShadows;
+    setGroupShadowCasting(chunk.details, shouldCastShadows);
+    setGroupShadowCasting(chunk.detailsBuildTarget, shouldCastShadows);
   }
 
   syncChunkPopulationForLod(chunk) {
@@ -400,6 +434,7 @@ export class ChunkManager {
     chunk.updaters = [];
     chunk.hasRegisteredUpdaters = false;
     chunk.detailsLodFactor = null;
+    chunk.areDetailsShadowCasters = null;
     chunk.stage = Math.min(chunk.stage, 1);
     this.updaters = this.updaters.filter((entry) => entry.chunkKey !== chunk.key);
   }
@@ -435,6 +470,8 @@ export class ChunkManager {
     chunk.detailsLodFactor = chunk.pendingDetailsLodFactor ?? chunk.lodFactor;
     chunk.detailsBuildTarget = null;
     chunk.pendingDetailsLodFactor = null;
+    chunk.areDetailsShadowCasters = null;
+    this.syncChunkShadowBudget(chunk);
   }
 
   enqueueChunkBuild(chunk) {
@@ -566,7 +603,8 @@ export class ChunkManager {
       lodFactor: 0,
       isQueued: false,
       missingSince: null,
-      hasRegisteredUpdaters: false
+      hasRegisteredUpdaters: false,
+      areDetailsShadowCasters: null
     };
   }
 

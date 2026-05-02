@@ -69,7 +69,7 @@ function tuneRockMaterials(root, maxAnisotropy) {
       return;
     }
 
-    child.castShadow = false;
+    child.castShadow = true;
     child.receiveShadow = true;
 
     forEachMaterial(child.material, (material) => {
@@ -156,7 +156,7 @@ export class MossyRockLibrary {
         const descriptors = extractInstancedMeshDescriptors(template);
         const build = (placements) =>
           buildInstancedGroupFromDescriptors(descriptors, placements, {
-            castShadow: false,
+            castShadow: true,
             receiveShadow: true
           });
 

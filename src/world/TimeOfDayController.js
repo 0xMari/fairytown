@@ -12,6 +12,8 @@ const STAR_FIELD_DISTANCE = 330;
 const STAR_COUNT = 520;
 const DAY_FOG_RANGE = { near: 36, far: 125 };
 const NIGHT_FOG_RANGE = { near: 22, far: 82 };
+const SUN_SHADOW_VISIBILITY_THRESHOLD = 0.05;
+const MOON_SHADOW_VISIBILITY_THRESHOLD = 0.18;
 
 const SKY_COLOR_STOPS = [
   { hour: 0, value: "#02040a" },
@@ -127,6 +129,15 @@ function sampleColorStops(stops, hour, target) {
   const { start, end, alpha } = sampleStops(stops, hour);
   target.set(start.value);
   return target.lerp(new THREE.Color(end.value), alpha);
+}
+
+function setShadowActive(light, isActive) {
+  if (!light || light.castShadow === isActive) {
+    return;
+  }
+
+  light.castShadow = isActive;
+  light.shadow.needsUpdate = true;
 }
 
 function getDayPhase(hour) {
@@ -393,6 +404,18 @@ export class TimeOfDayController {
     this.sunLight.intensity = THREE.MathUtils.lerp(0.04, 2.25, daylight);
     this.moonLight.color.copy(this.moonColor);
     this.moonLight.intensity = THREE.MathUtils.lerp(0, 0.52, moonVisibility);
+
+    setShadowActive(this.sunLight, sunVisibility > SUN_SHADOW_VISIBILITY_THRESHOLD);
+    setShadowActive(
+      this.moonLight,
+      moonVisibility > MOON_SHADOW_VISIBILITY_THRESHOLD && daylight < 0.28
+    );
+    this.sunLight.shadow.radius = THREE.MathUtils.lerp(5.2, 1.6, daylight);
+    this.sunLight.shadow.normalBias = THREE.MathUtils.lerp(0.115, 0.04, daylight);
+    this.sunLight.shadow.bias = THREE.MathUtils.lerp(-0.00008, -0.00022, daylight);
+    this.moonLight.shadow.radius = 5.8;
+    this.moonLight.shadow.normalBias = 0.09;
+    this.moonLight.shadow.bias = -0.00006;
 
     this.renderer.toneMappingExposure = sampleNumberStops(EXPOSURE_STOPS, hour);
     this.fairyLight.intensity = sampleNumberStops(FAIRY_LIGHT_STOPS, hour);
