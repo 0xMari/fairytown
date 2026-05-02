@@ -324,6 +324,14 @@ export class TimeOfDayController {
     this.sunDiscOffset = new THREE.Vector3();
     this.moonDiscOffset = new THREE.Vector3();
     this.elapsedTime = 0;
+    this.skyState = {
+      hour: this.state.hour,
+      daylight: 1,
+      sunVisibility: 1,
+      moonVisibility: 0,
+      starVisibility: 0,
+      phase: this.state.phase
+    };
 
     const { group, halo, core } = createSunGroup();
     const moon = createMoonGroup();
@@ -381,6 +389,12 @@ export class TimeOfDayController {
     const twilightBoost = 1 - Math.min(1, Math.abs(solarElevation) * 2.2);
 
     this.state.phase = getDayPhase(hour);
+    this.skyState.hour = hour;
+    this.skyState.daylight = daylight;
+    this.skyState.sunVisibility = sunVisibility;
+    this.skyState.moonVisibility = moonVisibility;
+    this.skyState.starVisibility = starVisibility;
+    this.skyState.phase = this.state.phase;
 
     sampleColorStops(SKY_COLOR_STOPS, hour, this.skyColor);
     this.scene.background.copy(this.skyColor);
@@ -465,5 +479,9 @@ export class TimeOfDayController {
     this.starField.visible = starVisibility > 0.01;
     this.starMaterial.opacity =
       starVisibility * THREE.MathUtils.lerp(0.72, 1, 0.5 + Math.sin(this.elapsedTime * 0.35) * 0.5);
+  }
+
+  getSkyState() {
+    return this.skyState;
   }
 }
