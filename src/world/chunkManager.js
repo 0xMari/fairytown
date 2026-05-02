@@ -12,6 +12,8 @@ import {
   createTerrainGeometry,
   getTerrainHeight,
   getTerrainHeightInChunk,
+  getTerrainNormal,
+  getTerrainNormalInChunk,
   getTerrainWaterData,
   TERRAIN_CHUNK_SEGMENTS
 } from "./terrain.js";
@@ -175,8 +177,25 @@ export class ChunkManager {
     return getTerrainHeight(x, z, this.seed);
   }
 
+  getTerrainNormalAtPosition(x, z, sampleDistance, target) {
+    return getTerrainNormal(x, z, this.seed, sampleDistance, target);
+  }
+
   getTerrainHeightAtLocalPosition(localX, localZ, chunkX, chunkZ) {
     return getTerrainHeightInChunk(localX, localZ, chunkX, chunkZ, this.chunkSize, this.seed);
+  }
+
+  getTerrainNormalAtLocalPosition(localX, localZ, chunkX, chunkZ, sampleDistance, target) {
+    return getTerrainNormalInChunk(
+      localX,
+      localZ,
+      chunkX,
+      chunkZ,
+      this.chunkSize,
+      this.seed,
+      sampleDistance,
+      target
+    );
   }
 
   getTerrainWaterDataAtPosition(x, z) {
@@ -554,8 +573,18 @@ export class ChunkManager {
   getTerrainContextForChunk(chunk) {
     return {
       getHeightAtPosition: this.getTerrainHeightAtPosition.bind(this),
+      getNormalAtPosition: this.getTerrainNormalAtPosition.bind(this),
       getHeightAtLocalPosition: (localX, localZ) =>
         this.getTerrainHeightAtLocalPosition(localX, localZ, chunk.chunkX, chunk.chunkZ),
+      getNormalAtLocalPosition: (localX, localZ, sampleDistance, target) =>
+        this.getTerrainNormalAtLocalPosition(
+          localX,
+          localZ,
+          chunk.chunkX,
+          chunk.chunkZ,
+          sampleDistance,
+          target
+        ),
       getWaterDataAtPosition: this.getVisibleTerrainWaterDataAtPosition.bind(this),
       getWaterDataAtLocalPosition: (localX, localZ) =>
         this.getVisibleTerrainWaterDataAtPosition(
@@ -804,6 +833,12 @@ export class ChunkManager {
           chunk.chunkX,
           chunk.chunkZ
         );
+        const terrainNormal = this.getTerrainNormalAtLocalPosition(
+          x,
+          z,
+          chunk.chunkX,
+          chunk.chunkZ
+        );
         const built = builder({
           rng: chunk.rng,
           biome: chunk.biome,
@@ -828,6 +863,7 @@ export class ChunkManager {
           group: detailsGroup,
           instanceCollector: chunk.instanceCollector,
           position: { x, y: height, z },
+          terrainNormal,
           rotationY,
           scale,
           updaters: chunk.updaters,

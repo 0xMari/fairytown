@@ -3,6 +3,7 @@ import { fbm2D } from "./noise.js";
 
 export const TERRAIN_CHUNK_SEGMENTS = 36;
 const TERRAIN_TEXTURE_WORLD_SCALE = 18;
+const TERRAIN_UP = new THREE.Vector3(0, 1, 0);
 export const DEFAULT_TERRAIN_HEIGHT_SETTINGS = Object.freeze({
   broadAmplitude: 16.5,
   rollingAmplitude: 11.9,
@@ -69,6 +70,19 @@ export function getTerrainHeight(x, z, seed) {
   return sampleTerrainShape(x, z, seed).height;
 }
 
+export function getTerrainNormal(x, z, seed, sampleDistance = 1.6, target = new THREE.Vector3()) {
+  const left = getTerrainHeight(x - sampleDistance, z, seed);
+  const right = getTerrainHeight(x + sampleDistance, z, seed);
+  const back = getTerrainHeight(x, z - sampleDistance, seed);
+  const forward = getTerrainHeight(x, z + sampleDistance, seed);
+
+  return target
+    .set(left - right, sampleDistance * 2, back - forward)
+    .normalize()
+    .lerp(TERRAIN_UP, 0.12)
+    .normalize();
+}
+
 export function getTerrainWaterData(x, z, seed) {
   const terrain = sampleTerrainShape(x, z, seed);
   const lowland = 1 - smoothstep(-10.5, -1.5, terrain.height);
@@ -108,6 +122,25 @@ export function getTerrainWaterData(x, z, seed) {
 
 export function getTerrainHeightInChunk(localX, localZ, chunkX, chunkZ, chunkSize, seed) {
   return getTerrainHeight(chunkX * chunkSize + localX, chunkZ * chunkSize + localZ, seed);
+}
+
+export function getTerrainNormalInChunk(
+  localX,
+  localZ,
+  chunkX,
+  chunkZ,
+  chunkSize,
+  seed,
+  sampleDistance,
+  target
+) {
+  return getTerrainNormal(
+    chunkX * chunkSize + localX,
+    chunkZ * chunkSize + localZ,
+    seed,
+    sampleDistance,
+    target
+  );
 }
 
 export function createTerrainGeometry({

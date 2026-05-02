@@ -12,6 +12,8 @@ const TREE_MODEL_URLS = [
     fixedScale: 1.3,
     rootScaleOverride: 1,
     buryOffset: -2.5,
+    groundOffset: -0.42,
+    maxTerrainNormalTilt: 0.14,
     textureBase: "/trees/old_tree/textures/",
     maps: {
       oldtrunk: {
@@ -32,6 +34,8 @@ const TREE_MODEL_URLS = [
     key: "tree-gn",
     url: "/trees/tree_gn/scene.gltf",
     buryOffset: -0.32,
+    groundOffset: -0.26,
+    maxTerrainNormalTilt: 0.18,
     textureBase: "/trees/tree_gn/textures/",
     maps: {
       clusterb: {
@@ -68,6 +72,8 @@ const TREE_MODEL_URLS = [
     rootScaleOverride: 1,
     baseRadius: 1.6,
     buryOffset: -0.08,
+    groundOffset: -0.48,
+    maxTerrainNormalTilt: 0.12,
     textureBase: "/trees/oak_trees/textures/",
     maps: {
       bark1: {
@@ -333,6 +339,8 @@ export class HighPolyTreeLibrary {
           key: `${definition.key}-${index}`,
           fixedScale: definition.fixedScale ?? null,
           rootScaleOverride: definition.rootScaleOverride ?? null,
+          groundOffset: definition.groundOffset ?? -0.24,
+          maxTerrainNormalTilt: definition.maxTerrainNormalTilt ?? 0.16,
           baseRadius: definition.baseRadius ?? 0.82,
           targetHeight: definition.targetHeight ?? TREE_TARGET_HEIGHT,
           build
@@ -385,6 +393,8 @@ export class HighPolyTreeLibrary {
     return {
       instances,
       rootScaleOverride: variant.rootScaleOverride,
+      groundOffset: variant.groundOffset,
+      maxTerrainNormalTilt: variant.maxTerrainNormalTilt,
       baseRadius: variant.baseRadius,
       height: variant.targetHeight * (variant.fixedScale ?? 1)
     };

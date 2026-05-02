@@ -1,6 +1,37 @@
 import * as THREE from "three";
 
 const IDENTITY_MATRIX = new THREE.Matrix4();
+const Y_AXIS = new THREE.Vector3(0, 1, 0);
+const TEMP_NORMAL = new THREE.Vector3();
+const TEMP_ALIGNMENT = new THREE.Quaternion();
+const TEMP_TWIST = new THREE.Quaternion();
+const TEMP_ROTATION = new THREE.Quaternion();
+const DEFAULT_TERRAIN_NORMAL_TILT = 0.32;
+
+function getLimitedTerrainNormal(normal, maxTiltRadians, target) {
+  if (!normal) {
+    return target.copy(Y_AXIS);
+  }
+
+  target.copy(normal).normalize();
+
+  const tilt = Y_AXIS.angleTo(target);
+
+  if (tilt > maxTiltRadians && tilt > 0.0001) {
+    target.copy(Y_AXIS).lerp(target, maxTiltRadians / tilt).normalize();
+  }
+
+  return target;
+}
+
+function createTerrainRotation(rotationY, terrainNormal, maxTiltRadians = DEFAULT_TERRAIN_NORMAL_TILT) {
+  const normal = getLimitedTerrainNormal(terrainNormal, maxTiltRadians, TEMP_NORMAL);
+
+  TEMP_ALIGNMENT.setFromUnitVectors(Y_AXIS, normal);
+  TEMP_TWIST.setFromAxisAngle(normal, rotationY);
+
+  return TEMP_ROTATION.multiplyQuaternions(TEMP_TWIST, TEMP_ALIGNMENT);
+}
 
 export class InstanceBatchCollector {
   constructor() {
@@ -56,6 +87,7 @@ export function addBuiltAssetToChunk({
   group,
   instanceCollector,
   position,
+  terrainNormal = null,
   rotationY = 0,
   scale = 1,
   updaters = null,
@@ -67,9 +99,11 @@ export function addBuiltAssetToChunk({
 
   if (built.instances?.length) {
     const rootScale = built.rootScaleOverride ?? scale;
+    const groundOffset = built.groundOffset ?? 0;
+    const alignmentTilt = built.maxTerrainNormalTilt ?? DEFAULT_TERRAIN_NORMAL_TILT;
     const rootMatrix = new THREE.Matrix4().compose(
-      new THREE.Vector3(position.x, position.y, position.z),
-      new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), rotationY),
+      new THREE.Vector3(position.x, position.y + groundOffset, position.z),
+      createTerrainRotation(rotationY, terrainNormal, alignmentTilt),
       new THREE.Vector3(rootScale, rootScale, rootScale)
     );
 
@@ -89,8 +123,12 @@ export function addBuiltAssetToChunk({
     return false;
   }
 
-  built.object.position.set(position.x, position.y, position.z);
-  built.object.rotation.y = rotationY;
+  built.object.position.set(position.x, position.y + (built.groundOffset ?? 0), position.z);
+  built.object.quaternion.copy(
+    built.alignToTerrainNormal
+      ? createTerrainRotation(rotationY, terrainNormal, built.maxTerrainNormalTilt)
+      : new THREE.Quaternion().setFromAxisAngle(Y_AXIS, rotationY)
+  );
   built.object.scale.setScalar(scale);
   group.add(built.object);
 

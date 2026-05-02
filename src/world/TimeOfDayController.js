@@ -10,6 +10,8 @@ const MOON_DISC_DISTANCE = 228;
 const MOON_DISC_SIZE = 7.2;
 const STAR_FIELD_DISTANCE = 330;
 const STAR_COUNT = 520;
+const DAY_FOG_RANGE = { near: 36, far: 125 };
+const NIGHT_FOG_RANGE = { near: 22, far: 82 };
 
 const SKY_COLOR_STOPS = [
   { hour: 0, value: "#02040a" },
@@ -26,13 +28,13 @@ const SKY_COLOR_STOPS = [
 ];
 
 const FOG_COLOR_STOPS = [
-  { hour: 0, value: "#010307" },
-  { hour: 5.8, value: "#3a354d" },
+  { hour: 0, value: "#000103" },
+  { hour: 5.8, value: "#12131a" },
   { hour: 7.2, value: "#c9b09a" },
-  { hour: 12, value: "#cfdce3" },
+  { hour: 12, value: "#c9dac6" },
   { hour: 18.1, value: "#9c7a6f" },
-  { hour: 20.4, value: "#1a1e2b" },
-  { hour: 24, value: "#010307" }
+  { hour: 20.4, value: "#05070c" },
+  { hour: 24, value: "#000103" }
 ];
 
 const HEMI_SKY_STOPS = [
@@ -375,10 +377,8 @@ export class TimeOfDayController {
     if (this.scene.fog) {
       sampleColorStops(FOG_COLOR_STOPS, hour, this.fogColor);
       this.scene.fog.color.copy(this.fogColor);
-
-      if (this.scene.fog.isFogExp2) {
-        this.scene.fog.density = THREE.MathUtils.lerp(0.00015, 0.00042, 1 - daylight);
-      }
+      this.scene.fog.near = THREE.MathUtils.lerp(NIGHT_FOG_RANGE.near, DAY_FOG_RANGE.near, daylight);
+      this.scene.fog.far = THREE.MathUtils.lerp(NIGHT_FOG_RANGE.far, DAY_FOG_RANGE.far, daylight);
     }
 
     sampleColorStops(HEMI_SKY_STOPS, hour, this.hemiSkyColor);

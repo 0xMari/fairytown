@@ -35,6 +35,12 @@ function getGroundBiomeWeights({ biomeKey, natureBiomeKey, getBiomeWeightsAtPosi
 }
 
 function getTerrainNormalAtLocalPosition(terrain, localX, localZ, sampleDistance = 1.6) {
+  const sampledNormal = terrain?.getNormalAtLocalPosition?.(localX, localZ, sampleDistance, TEMP_NORMAL);
+
+  if (sampledNormal) {
+    return sampledNormal;
+  }
+
   const centerHeight = terrain?.getHeightAtLocalPosition?.(localX, localZ) ?? 0;
   const left = terrain?.getHeightAtLocalPosition?.(localX - sampleDistance, localZ) ?? centerHeight;
   const right = terrain?.getHeightAtLocalPosition?.(localX + sampleDistance, localZ) ?? centerHeight;
@@ -66,6 +72,7 @@ function addModelPatch({
   x,
   y,
   z,
+  normal,
   lodFactor,
   countRange,
   radiusRange,
@@ -84,11 +91,13 @@ function addModelPatch({
     return false;
   }
 
-  const rootMatrix = new THREE.Matrix4().compose(
-    new THREE.Vector3(x, y, z),
-    new THREE.Quaternion().setFromAxisAngle(Y_AXIS, rng() * Math.PI * 2),
-    new THREE.Vector3(1, 1, 1)
-  );
+  const rootMatrix = normal
+    ? createTerrainAlignedMatrix({ rng, x, y, z, normal })
+    : new THREE.Matrix4().compose(
+      new THREE.Vector3(x, y, z),
+      new THREE.Quaternion().setFromAxisAngle(Y_AXIS, rng() * Math.PI * 2),
+      new THREE.Vector3(1, 1, 1)
+    );
 
   collector.queue(instances, rootMatrix);
 
@@ -164,6 +173,7 @@ export class ProceduralVegetationLayer {
         }
 
         const groundHeight = terrain?.getHeightAtLocalPosition?.(localX, localZ) ?? 0;
+        const terrainNormal = getTerrainNormalAtLocalPosition(terrain, localX, localZ);
         const dryFactor = 1 - smoothstep(0.04, 0.16, waterPresence);
         const meadowGrass = meadow * splat.gray * (0.42 + glade * 0.72) * dryFactor;
         const fernDensity =
@@ -193,6 +203,7 @@ export class ProceduralVegetationLayer {
             x: localX,
             y: groundHeight,
             z: localZ,
+            normal: terrainNormal,
             lodFactor,
             countRange: [1, 2],
             radiusRange: [0.14, 0.56],
@@ -212,6 +223,7 @@ export class ProceduralVegetationLayer {
             x: localX,
             y: groundHeight,
             z: localZ,
+            normal: terrainNormal,
             lodFactor,
             countRange: [1, 2],
             radiusRange: [0.22, 0.82],
@@ -244,22 +256,29 @@ export class ProceduralVegetationLayer {
         }
 
         if (
-          rng() < flowerDensity * 0.24 &&
-          addModelPatch({
+          rng() < flowerDensity * 0.24
+        ) {
+          const flowerX = localX + randomBetween(rng, -0.22, 0.22);
+          const flowerZ = localZ + randomBetween(rng, -0.22, 0.22);
+          const flowerHeight = terrain?.getHeightAtLocalPosition?.(flowerX, flowerZ) ?? groundHeight;
+          const flowerNormal = getTerrainNormalAtLocalPosition(terrain, flowerX, flowerZ);
+
+          if (addModelPatch({
             collector: plantCollector,
             library: flowerLibrary,
             rng,
-            x: localX + randomBetween(rng, -0.22, 0.22),
-            y: groundHeight,
-            z: localZ + randomBetween(rng, -0.22, 0.22),
+            x: flowerX,
+            y: flowerHeight,
+            z: flowerZ,
+            normal: flowerNormal,
             lodFactor,
             countRange: [1, 3],
             radiusRange: [0.12, 0.48],
             scaleRange: [0.72 * scale, 1.16 * scale],
             tilt: 0.07
-          })
-        ) {
-          acceptedSamples += 1;
+          })) {
+            acceptedSamples += 1;
+          }
         }
 
         if (rng() < crystalDensity * 0.38) {
@@ -269,11 +288,13 @@ export class ProceduralVegetationLayer {
           });
 
           if (crystalInstances) {
-            const rootMatrix = new THREE.Matrix4().compose(
-              new THREE.Vector3(localX, groundHeight, localZ),
-              new THREE.Quaternion().setFromAxisAngle(Y_AXIS, rng() * Math.PI * 2),
-              new THREE.Vector3(1, 1, 1)
-            );
+            const rootMatrix = createTerrainAlignedMatrix({
+              rng,
+              x: localX,
+              y: groundHeight,
+              z: localZ,
+              normal: terrainNormal
+            });
 
             plantCollector.queue(crystalInstances, rootMatrix);
             acceptedSamples += 1;

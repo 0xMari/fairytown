@@ -19,11 +19,13 @@ import { TimeOfDayController } from "./world/TimeOfDayController.js";
 
 const MAX_RENDERER_PIXEL_RATIO = 1.25;
 const BLOOM_RESOLUTION_SCALE = 0.6;
+const WORLD_SEED = 83473;
 const WORLD_VIEW_RADIUS = 1;
 const WORLD_PRELOAD_RADIUS = 2;
 const SUN_SHADOW_MAP_SIZE = 512;
 const HORIZON_FOG_COLOR = "#d9ebfa";
-const HORIZON_FOG_DENSITY = 0.0052;
+const HORIZON_FOG_NEAR = 36;
+const HORIZON_FOG_FAR = 125;
 const IS_DEBUG_ROUTE = window.location.pathname.replace(/\/+$/, "").endsWith("/debug");
 const ENABLE_BLOOM_PASS = false;
 
@@ -170,7 +172,7 @@ async function bootstrap() {
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color("#87ceeb");
-  scene.fog = new THREE.FogExp2(HORIZON_FOG_COLOR, HORIZON_FOG_DENSITY);
+  scene.fog = new THREE.Fog(HORIZON_FOG_COLOR, HORIZON_FOG_NEAR, HORIZON_FOG_FAR);
 
   const camera = new THREE.PerspectiveCamera(
     70,
@@ -192,7 +194,7 @@ async function bootstrap() {
   }
 
   const world = new ChunkManager(scene, {
-    seed: 83473,
+    seed: WORLD_SEED,
     chunkSize: 48,
     viewRadius: WORLD_VIEW_RADIUS,
     preloadRadius: WORLD_PRELOAD_RADIUS,
