@@ -29,6 +29,9 @@ const DEFAULT_CENTER_CHUNK_LOD_FACTOR = 1.1;
 const DEFAULT_NEARBY_CHUNK_LOD_FACTOR = 0.68;
 const DEFAULT_POPULATION_REBUILD_LOD_DELTA = Number.POSITIVE_INFINITY;
 const DEFAULT_SHADOW_CAST_RING_DISTANCE = 1;
+const DEFAULT_WATER_RENDER_RING_DISTANCE = 1;
+const WATER_CHUNK_OVERLAP = 0.35;
+const WATER_LEVEL_STEP = 0.5;
 
 function randomBetween(rng, min, max) {
   return min + (max - min) * rng();
@@ -95,6 +98,8 @@ export class ChunkManager {
       options.populationRebuildLodDelta ?? DEFAULT_POPULATION_REBUILD_LOD_DELTA;
     this.shadowCastRingDistance =
       options.shadowCastRingDistance ?? DEFAULT_SHADOW_CAST_RING_DISTANCE;
+    this.waterRenderRingDistance =
+      options.waterRenderRingDistance ?? DEFAULT_WATER_RENDER_RING_DISTANCE;
     this.lastElapsedTime = 0;
     this.terrainWater = new TerrainWaterLibrary();
     this.biomeGroundColors = Object.fromEntries(
@@ -326,6 +331,7 @@ export class ChunkManager {
 
       this.syncChunkPopulationForLod(chunk);
       this.syncChunkShadowBudget(chunk);
+      this.syncChunkWaterBudget(chunk);
 
       if (chunk.stage < chunk.targetStage && !chunk.isQueued) {
         this.enqueueChunkBuild(chunk);
@@ -350,6 +356,7 @@ export class ChunkManager {
     }
 
     this.processGenerationQueue();
+    this.terrainWater.update(elapsedTime);
 
     for (const updater of this.updaters) {
       updater.update(elapsedTime);
@@ -367,6 +374,15 @@ export class ChunkManager {
     chunk.areDetailsShadowCasters = shouldCastShadows;
     setGroupShadowCasting(chunk.details, shouldCastShadows);
     setGroupShadowCasting(chunk.detailsBuildTarget, shouldCastShadows);
+  }
+
+  syncChunkWaterBudget(chunk) {
+    if (!chunk.waterMesh) {
+      return;
+    }
+
+    chunk.waterMesh.visible =
+      chunk.targetStage > 0 && chunk.ringDistance <= this.waterRenderRingDistance;
   }
 
   syncChunkPopulationForLod(chunk) {
@@ -529,9 +545,7 @@ export class ChunkManager {
       chunk.terrainMesh.geometry.dispose();
     }
 
-    if (chunk.waterMesh?.geometry) {
-      chunk.waterMesh.geometry.dispose();
-    }
+    this.terrainWater.disposeWater(chunk.waterMesh);
 
     if (chunk.detailsBuildTarget) {
       disposeInstanceBatchMaterials(chunk.detailsBuildTarget);
@@ -645,6 +659,8 @@ export class ChunkManager {
     const waterDepths = new Float32Array(terrainPositions.count);
     const groundColor = new THREE.Color();
     let maxWaterMask = 0;
+    let waterHeightTotal = 0;
+    let waterHeightWeight = 0;
 
     for (let index = 0; index < terrainPositions.count; index += 1) {
       const localX = terrainPositions.getX(index);
@@ -686,6 +702,11 @@ export class ChunkManager {
       waterMasks[index] = waterMask;
       waterDepths[index] = waterDepth;
       maxWaterMask = Math.max(maxWaterMask, waterMask);
+
+      if (waterMask > 0.18) {
+        waterHeightTotal += waterData.surfaceHeight * waterMask;
+        waterHeightWeight += waterMask;
+      }
     }
 
     terrainPositions.needsUpdate = true;
@@ -717,9 +738,10 @@ export class ChunkManager {
     chunk.terrainMesh = ground;
 
     if (maxWaterMask > 0.18) {
+      const waterGeometrySize = this.chunkSize + WATER_CHUNK_OVERLAP * 2;
       const waterGeometry = new THREE.PlaneGeometry(
-        this.chunkSize,
-        this.chunkSize,
+        waterGeometrySize,
+        waterGeometrySize,
         this.terrainSegments,
         this.terrainSegments
       );
@@ -731,8 +753,8 @@ export class ChunkManager {
         const localZ = -waterPositions.getY(index);
         const worldX = chunk.chunkX * this.chunkSize + localX;
         const worldZ = chunk.chunkZ * this.chunkSize + localZ;
-        const waterData = this.getVisibleTerrainWaterDataAtPosition(worldX, worldZ);
-        waterPositions.setZ(index, waterData.surfaceHeight);
+
+        waterPositions.setZ(index, 0);
         waterUvs.setXY(index, worldX / 18, worldZ / 18);
       }
 
@@ -744,11 +766,17 @@ export class ChunkManager {
       waterGeometry.setAttribute("waterMask", new THREE.BufferAttribute(waterMasks, 1));
       waterGeometry.setAttribute("waterDepth", new THREE.BufferAttribute(waterDepths, 1));
 
-      const water = new THREE.Mesh(waterGeometry, this.terrainWater.getMaterial());
+      const waterSurfaceHeight =
+        waterHeightWeight > 0 ? waterHeightTotal / waterHeightWeight : 0;
+      const steppedWaterSurfaceHeight =
+        Math.round(waterSurfaceHeight / WATER_LEVEL_STEP) * WATER_LEVEL_STEP + 0.025;
+      const water = this.terrainWater.createWater(waterGeometry);
       water.rotation.x = -Math.PI / 2;
+      water.position.y = steppedWaterSurfaceHeight;
       water.receiveShadow = false;
       water.castShadow = false;
       water.renderOrder = 2;
+      water.visible = chunk.ringDistance <= this.waterRenderRingDistance;
       chunk.content.add(water);
       chunk.waterMesh = water;
     }
