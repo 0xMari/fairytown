@@ -5,6 +5,8 @@ import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
 import { SSAOPass } from "three/examples/jsm/postprocessing/SSAOPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
+import { LUTPass } from "three/examples/jsm/postprocessing/LUTPass.js";
+import { LUTCubeLoader } from "three/examples/jsm/loaders/LUTCubeLoader.js";
 import "./style.css";
 import { SELECTIVE_BLOOM_LAYER } from "./rendering/bloom.js";
 import { PerformanceController } from "./rendering/PerformanceController.js";
@@ -33,6 +35,8 @@ const HORIZON_FOG_NEAR = 36;
 const HORIZON_FOG_FAR = 125;
 const IS_DEBUG_ROUTE = window.location.pathname.replace(/\/+$/, "").endsWith("/debug");
 const ENABLE_BLOOM_PASS = false;
+const FAIRYTOWN_LUT_PATH = "/luts/fairytown_forest_look.cube";
+const FAIRYTOWN_LUT_INTENSITY = 1;
 
 const biomeNameEl = document.querySelector("#biome-name");
 const chunkCountEl = document.querySelector("#chunk-count");
@@ -98,6 +102,23 @@ function getCappedPixelRatio() {
 
 function getBloomPixelRatio(renderer) {
   return Math.max(0.5, renderer.getPixelRatio() * BLOOM_RESOLUTION_SCALE);
+}
+
+function createLutPass(lut) {
+  if (!lut?.texture3D) {
+    return null;
+  }
+
+  const pass = new LUTPass({
+    lut: lut.texture3D,
+    intensity: FAIRYTOWN_LUT_INTENSITY
+  });
+
+  pass.material.depthTest = false;
+  pass.material.depthWrite = false;
+  pass.material.blending = THREE.NoBlending;
+
+  return pass;
 }
 
 function createWorldEntryController(renderer) {
@@ -189,9 +210,11 @@ async function bootstrap() {
 
   const controls = new FairyControls(camera, renderer.domElement);
   const proceduralAssets = createProceduralAssetContext();
+  let fairytownLut = null;
 
   try {
     await loadProceduralAssets(proceduralAssets, renderer);
+    fairytownLut = await new LUTCubeLoader(loadingManager).loadAsync(FAIRYTOWN_LUT_PATH);
   } catch (error) {
     console.error("World assets failed to load.", error);
   } finally {
@@ -293,9 +316,13 @@ async function bootstrap() {
     "baseTexture"
   );
   finalPass.material.uniforms.bloomTexture.value = bloomComposer.renderTarget2.texture;
+  const finalLutPass = createLutPass(fairytownLut);
 
   finalComposer.addPass(finalRenderPass);
   finalComposer.addPass(finalPass);
+  if (finalLutPass) {
+    finalComposer.addPass(finalLutPass);
+  }
   finalComposer.addPass(new OutputPass());
   finalComposer.setPixelRatio(renderer.getPixelRatio());
   finalComposer.setSize(window.innerWidth, window.innerHeight);
@@ -303,8 +330,12 @@ async function bootstrap() {
   const ssaoComposer = new EffectComposer(renderer);
   const ssaoRenderPass = new RenderPass(scene, camera);
   const ssaoPass = new SSAOPass(scene, camera, window.innerWidth, window.innerHeight, 16);
+  const ssaoLutPass = createLutPass(fairytownLut);
   ssaoComposer.addPass(ssaoRenderPass);
   ssaoComposer.addPass(ssaoPass);
+  if (ssaoLutPass) {
+    ssaoComposer.addPass(ssaoLutPass);
+  }
   ssaoComposer.addPass(new OutputPass());
 
   const ssaoController = new SSAOController({
@@ -377,10 +408,8 @@ async function bootstrap() {
       scene.fog = originalFog;
 
       finalComposer.render();
-    } else if (ssaoController.isEnabled) {
-      ssaoComposer.render();
     } else {
-      renderer.render(scene, camera);
+      ssaoComposer.render();
     }
     performanceMonitor.update(delta);
     requestAnimationFrame(animate);

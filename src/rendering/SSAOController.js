@@ -51,7 +51,7 @@ export class SSAOController {
     this.gui.domElement.classList.add("ssao-gui");
     document.body.appendChild(this.gui.domElement);
 
-    this.gui.add(this.state, "enabled").name("Enabled");
+    this.gui.add(this.state, "enabled").name("Enabled").onChange(() => this.apply());
     this.gui
       .add(this.state, "kernelRadius", 0.5, 18, 0.1)
       .name("Radius")
@@ -79,6 +79,7 @@ export class SSAOController {
   }
 
   apply() {
+    this.pass.enabled = this.state.enabled;
     this.pass.kernelRadius = this.state.kernelRadius;
     this.pass.minDistance = this.state.minDistance;
     this.pass.maxDistance = this.state.maxDistance;

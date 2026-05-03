@@ -373,6 +373,7 @@ canvas {
     bottom: 12.5rem;
     width: min(18rem, calc(100vw - 2rem));
   }
+
 }
 
 @media (max-width: 720px) {
