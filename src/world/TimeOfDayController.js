@@ -358,6 +358,10 @@ export class TimeOfDayController {
     this.apply(this.camera.position, 0);
   }
 
+  get isNight() {
+    return this.state.phase === "Night";
+  }
+
   update(delta, cameraPosition, focusHeight = 0) {
     this.elapsedTime += delta;
 

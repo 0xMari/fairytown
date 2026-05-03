@@ -34,7 +34,7 @@ const HORIZON_FOG_COLOR = "#d9ebfa";
 const HORIZON_FOG_NEAR = 36;
 const HORIZON_FOG_FAR = 125;
 const IS_DEBUG_ROUTE = window.location.pathname.replace(/\/+$/, "").endsWith("/debug");
-const ENABLE_BLOOM_PASS = false;
+const ENABLE_NIGHT_BLOOM_PASS = true;
 const FAIRYTOWN_LUT_PATH = "/luts/fairytown_forest_look.cube";
 const FAIRYTOWN_LUT_INTENSITY = 1;
 
@@ -395,7 +395,7 @@ async function bootstrap() {
     updateProceduralAssets(proceduralAssets, elapsedTime);
     updateBiomeReadout();
 
-    if (ENABLE_BLOOM_PASS) {
+    if (ENABLE_NIGHT_BLOOM_PASS && timeOfDay.isNight) {
       const originalBackground = scene.background;
       const originalFog = scene.fog;
 
