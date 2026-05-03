@@ -23,6 +23,8 @@ import { isVillageChunk } from "./villageGrid.js";
 
 const CHUNK_BUILD_STAGE_COUNT = 3;
 const DEFAULT_CHUNK_BUILD_STEPS_PER_FRAME = 1;
+const DEFAULT_CHUNK_BUILD_TIME_BUDGET_MS = 4.5;
+const DEFAULT_PROP_PLACEMENT_ATTEMPTS_PER_FRAME = 10;
 const DEFAULT_CHUNK_PRELOAD_RADIUS = 2;
 const DEFAULT_CHUNK_UNLOAD_GRACE_SECONDS = 0.45;
 const DEFAULT_CENTER_CHUNK_LOD_FACTOR = 1.1;
@@ -88,6 +90,10 @@ export class ChunkManager {
     this.generationQueue = [];
     this.updaters = [];
     this.chunkBuildStepsPerFrame = options.chunkBuildStepsPerFrame ?? DEFAULT_CHUNK_BUILD_STEPS_PER_FRAME;
+    this.chunkBuildTimeBudgetMs =
+      options.chunkBuildTimeBudgetMs ?? DEFAULT_CHUNK_BUILD_TIME_BUDGET_MS;
+    this.propPlacementAttemptsPerFrame =
+      options.propPlacementAttemptsPerFrame ?? DEFAULT_PROP_PLACEMENT_ATTEMPTS_PER_FRAME;
     this.chunkUnloadGraceSeconds =
       options.chunkUnloadGraceSeconds ?? DEFAULT_CHUNK_UNLOAD_GRACE_SECONDS;
     this.centerChunkLodFactor =
@@ -447,6 +453,7 @@ export class ChunkManager {
     chunk.details = this.createChunkDetailsGroup();
     chunk.content.add(chunk.details);
     chunk.instanceCollector = new InstanceBatchCollector();
+    chunk.propsBuildState = null;
     chunk.updaters = [];
     chunk.hasRegisteredUpdaters = false;
     chunk.detailsLodFactor = null;
@@ -459,6 +466,7 @@ export class ChunkManager {
     this.updaters = this.updaters.filter((entry) => entry.chunkKey !== chunk.key);
     chunk.updaters = [];
     chunk.instanceCollector = new InstanceBatchCollector();
+    chunk.propsBuildState = null;
     chunk.rng = this.createChunkPopulationRng(chunk);
     chunk.detailsBuildTarget = this.createChunkDetailsGroup();
     chunk.pendingDetailsLodFactor = chunk.lodFactor;
@@ -497,10 +505,16 @@ export class ChunkManager {
 
   processGenerationQueue() {
     let stepsRemaining = this.chunkBuildStepsPerFrame;
+    const generationDeadline = performance.now() + this.chunkBuildTimeBudgetMs;
 
-    while (stepsRemaining > 0 && this.generationQueue.length > 0) {
+    while (
+      stepsRemaining > 0 &&
+      this.generationQueue.length > 0 &&
+      performance.now() < generationDeadline
+    ) {
       const chunkKey = this.generationQueue.shift();
       const chunk = this.activeChunks.get(chunkKey);
+      let didFinishStep = true;
 
       stepsRemaining -= 1;
 
@@ -530,12 +544,19 @@ export class ChunkManager {
         this.buildChunkAdditions(chunk);
         chunk.stage = 2;
       } else if (chunk.stage === 2) {
-        this.buildChunkProps(chunk);
-        chunk.stage = 3;
+        didFinishStep = this.buildChunkProps(chunk, generationDeadline);
+
+        if (didFinishStep) {
+          chunk.stage = 3;
+        }
       }
 
       if (chunk.stage < chunk.targetStage) {
         this.enqueueChunkBuild(chunk);
+      }
+
+      if (!didFinishStep) {
+        break;
       }
     }
   }
@@ -608,6 +629,7 @@ export class ChunkManager {
       detailsBuildTarget: null,
       detailsLodFactor: null,
       pendingDetailsLodFactor: null,
+      propsBuildState: null,
       updaters,
       instanceCollector,
       rng: createRng("chunk", this.seed, chunkX, chunkZ, biomeKey),
@@ -816,16 +838,23 @@ export class ChunkManager {
     });
   }
 
-  buildChunkProps(chunk) {
-    let spawnedAssets = 0;
+  createChunkPropBuildState(chunk) {
     const lodFactor = chunk.lodFactor ?? 1;
-    const lodObjectBudget = Math.max(10, Math.floor(this.maxObjectsPerChunk * lodFactor));
-    const detailsGroup = chunk.detailsBuildTarget ?? chunk.details ?? chunk.content;
 
-    for (const [assetName, config] of Object.entries(chunk.biome.assetMix)) {
-      if (spawnedAssets >= lodObjectBudget) {
-        break;
-      }
+    return {
+      assetEntries: Object.entries(chunk.biome.assetMix),
+      assetIndex: 0,
+      currentAsset: null,
+      lodFactor,
+      lodObjectBudget: Math.max(10, Math.floor(this.maxObjectsPerChunk * lodFactor)),
+      spawnedAssets: 0
+    };
+  }
+
+  prepareNextPropAsset(chunk, state) {
+    while (!state.currentAsset && state.assetIndex < state.assetEntries.length) {
+      const [assetName, config] = state.assetEntries[state.assetIndex];
+      state.assetIndex += 1;
 
       const builder = PLACEHOLDER_BUILDERS[assetName];
 
@@ -836,14 +865,61 @@ export class ChunkManager {
       const baseCount = Math.floor(
         randomBetween(chunk.rng, config.count[0], config.count[1] + 0.999)
       );
-      const assetLodFactor = this.getAssetLodFactor(assetName, lodFactor);
+      const assetLodFactor = this.getAssetLodFactor(assetName, state.lodFactor);
       const count = Math.max(0, Math.floor(baseCount * assetLodFactor));
 
       if (count === 0) {
         continue;
       }
 
-      for (let index = 0; index < count; index += 1) {
+      state.currentAsset = {
+        assetName,
+        config,
+        builder,
+        assetLodFactor,
+        count,
+        index: 0
+      };
+    }
+  }
+
+  buildChunkProps(chunk, generationDeadline = Number.POSITIVE_INFINITY) {
+    if (!chunk.propsBuildState) {
+      chunk.propsBuildState = this.createChunkPropBuildState(chunk);
+    }
+
+    const state = chunk.propsBuildState;
+    const detailsGroup = chunk.detailsBuildTarget ?? chunk.details ?? chunk.content;
+    let attemptsRemaining = this.propPlacementAttemptsPerFrame;
+
+    this.prepareNextPropAsset(chunk, state);
+
+    while (
+      state.spawnedAssets < state.lodObjectBudget &&
+      attemptsRemaining > 0 &&
+      performance.now() < generationDeadline
+    ) {
+      if (!state.currentAsset) {
+        break;
+      }
+
+      const {
+        assetName,
+        config,
+        builder,
+        assetLodFactor,
+        count
+      } = state.currentAsset;
+
+      if (state.currentAsset.index >= count) {
+        state.currentAsset = null;
+        this.prepareNextPropAsset(chunk, state);
+        continue;
+      }
+
+      state.currentAsset.index += 1;
+      attemptsRemaining -= 1;
+
         const angle = chunk.rng() * Math.PI * 2;
         const radius = Math.sqrt(chunk.rng()) * this.chunkSize * 0.65;
         const x = Math.cos(angle) * radius;
@@ -912,7 +988,7 @@ export class ChunkManager {
           palette: chunk.palette,
           assetContext: this.assetContext,
           seed: this.seed,
-          lodFactor,
+          lodFactor: state.lodFactor,
           lodRingDistance: chunk.ringDistance,
           placement: {
             chunkX: chunk.chunkX,
@@ -940,21 +1016,36 @@ export class ChunkManager {
           continue;
         }
 
-        spawnedAssets += 1;
+        state.spawnedAssets += 1;
 
-        if (spawnedAssets >= lodObjectBudget) {
-          break;
-        }
+      if (state.spawnedAssets >= state.lodObjectBudget) {
+        break;
+      }
+
+      if (state.currentAsset.index >= count) {
+        state.currentAsset = null;
+        this.prepareNextPropAsset(chunk, state);
       }
     }
 
+    const isComplete =
+      state.spawnedAssets >= state.lodObjectBudget ||
+      (!state.currentAsset && state.assetIndex >= state.assetEntries.length);
+
+    if (!isComplete) {
+      return false;
+    }
+
     chunk.instanceCollector.flushInto(detailsGroup);
+    chunk.propsBuildState = null;
     this.commitChunkDetailsRebuild(chunk);
 
     if (!chunk.hasRegisteredUpdaters && chunk.updaters.length > 0) {
       this.updaters.push(...chunk.updaters);
       chunk.hasRegisteredUpdaters = true;
     }
+
+    return true;
   }
 
   getAssetLodFactor(assetName, lodFactor) {
