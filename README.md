@@ -75,4 +75,15 @@ npm run preview
 - Vite
 - HTML and CSS
 
+## Future features
 
+- Performance optimization across different devices
+- Mobile-friendly navigation and controls
+- Creatures and environmental interactions
+- Improved atmosphere and cinematic color grading
+- Sound design and ambient audio
+- More biome variety and procedural generation improvements
+
+## Notes
+
+Some repetitive tasks and project cleanup workflows were assisted using Codex support tools during development.
