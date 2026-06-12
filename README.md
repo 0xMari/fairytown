@@ -87,3 +87,6 @@ npm run preview
 ## Notes
 
 Some repetitive tasks and project cleanup workflows were assisted using Codex support tools during development.
+
+### Notes to my self
+It started with [this](https://github.com/0xMari/procedural-world) so there's always ways to improve and reach what your mind envision at the beginning. Give yourself time to find inspiration✨

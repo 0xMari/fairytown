@@ -12,6 +12,10 @@ import { SELECTIVE_BLOOM_LAYER } from "./rendering/bloom.js";
 import { PerformanceController } from "./rendering/PerformanceController.js";
 import { SSAOController } from "./rendering/SSAOController.js";
 import { LoadingScreen } from "./ui/LoadingScreen.js";
+import {
+  isMobileDevice,
+  MobileUnsupported
+} from "./ui/MobileUnsupported.js";
 import { BIOMES } from "./world/biomes.js";
 import { ChunkManager } from "./world/chunkManager.js";
 import { FairyControls } from "./world/FairyControls.js";
@@ -119,6 +123,11 @@ function createLutPass(lut) {
 }
 
 async function bootstrap() {
+  if (isMobileDevice()) {
+    new MobileUnsupported().show();
+    return;
+  }
+
   setupFairyFlightPanel();
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(getCappedPixelRatio());

@@ -1,0 +1,51 @@
+.mobile-unsupported {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  padding: 2rem;
+  background:
+    radial-gradient(circle at 50% 28%, rgba(255, 241, 197, 0.14), transparent 30%),
+    linear-gradient(180deg, #172638 0%, #101a27 100%);
+  color: #edf6ef;
+}
+
+.mobile-unsupported[hidden] {
+  display: none;
+}
+
+.mobile-unsupported__content {
+  width: min(28rem, 100%);
+  text-align: center;
+}
+
+.mobile-unsupported__eyebrow {
+  margin: 0 0 1.1rem;
+  color: rgba(237, 246, 239, 0.68);
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.mobile-unsupported__title {
+  margin: 0;
+  color: #edf6ef;
+  font-size: clamp(2rem, 10vw, 3.4rem);
+  line-height: 1.02;
+  text-wrap: balance;
+}
+
+.mobile-unsupported__body {
+  margin: 1.25rem auto 0;
+  max-width: 24rem;
+  color: #edf6ef;
+  font-size: 1rem;
+  line-height: 1.6;
+  text-wrap: balance;
+}
+
+body.is-mobile-unsupported {
+  background: #101a27;
+}
