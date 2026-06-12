@@ -16,61 +16,46 @@
   <body>
     <div class="entry-screen" id="entry-screen">
       <div class="entry-screen__card">
-        <p class="entry-screen__eyebrow">Fairy Flight</p>
-        <h1 class="entry-screen__title">Fairytown</h1>
-        <p class="entry-screen__body">
-          Drift through the procedural world and explore the biomes from a fairy's point of view.
+        <p class="entry-screen__body" id="entry-message" aria-live="polite">
+          Summoning mushrooms...
         </p>
-        <div class="entry-screen__controls" aria-label="Navigation commands">
-          <p><span>Move</span> WASD</p>
-          <p><span>Rise</span> Space</p>
-          <p><span>Drop</span> C</p>
-          <p><span>Boost</span> Shift</p>
-          <p><span>Look</span> Mouse</p>
+        <div
+          class="entry-screen__progress"
+          id="entry-progress"
+          role="progressbar"
+          aria-label="Loading world"
+          aria-valuemin="0"
+          aria-valuemax="100"
+          aria-valuenow="0"
+        >
+          <p class="entry-screen__status" id="entry-status">0%</p>
+          <div class="entry-screen__progress-track" aria-hidden="true">
+            <span class="entry-screen__progress-fill" id="entry-progress-fill"></span>
+          </div>
         </div>
-        <p class="entry-screen__status" id="entry-status">Loading world... 0%</p>
+        <div
+          class="entry-screen__controls"
+          aria-label="Navigation commands"
+          aria-hidden="true"
+        >
+          <p>Move/WASD</p>
+          <p>Rise/Space</p>
+          <p>Drop/C</p>
+          <p>Boost/Shift</p>
+          <p>Look/Mouse</p>
+        </div>
         <button
           type="button"
           class="entry-screen__button"
           id="enter-world-button"
           disabled
+          hidden
         >
-          Enter
+          Take flight
         </button>
       </div>
     </div>
     <div class="hud">
-      <!-- <div class="hud__card" id="fairy-flight-panel">
-        <div class="hud__card-header">
-          <div>
-            <p class="hud__eyebrow">Fairy Flight</p>
-            <h1>Fairytown</h1>
-          </div>
-          <button
-            type="button"
-            class="hud__toggle"
-            id="fairy-flight-toggle"
-            aria-expanded="true"
-            aria-controls="fairy-flight-details"
-            aria-label="Collapse Fairy Flight panel"
-          >
-            Hide
-          </button>
-        </div>
-        <div id="fairy-flight-details">
-          <p class="hud__body">
-            Click anywhere to fly. Explore three placeholder biomes while you
-            build your real asset kit.
-          </p>
-          <p class="hud__hint">
-            <span>Move</span> WASD
-            <span>Rise</span> Space
-            <span>Drop</span> C
-            <span>Boost</span> Shift
-            <span>Look</span> Mouse
-          </p>
-        </div>
-      </div> -->
       <div class="hud__status">
         <p id="biome-name">Biome: Sunlit Meadow</p>
         <p id="chunk-count">Loaded chunks: 0</p>
