@@ -26,7 +26,7 @@ import {
 } from "./world/procedural/index.js";
 import { TimeOfDayController } from "./world/TimeOfDayController.js";
 
-const MAX_RENDERER_PIXEL_RATIO = 1.25;
+const MAX_RENDERER_PIXEL_RATIO = 1.0;
 const BLOOM_RESOLUTION_SCALE = 0.6;
 const SSAO_RESOLUTION_SCALE = 0.75;
 const WORLD_SEED = 83473;

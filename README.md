@@ -1,17 +1,14 @@
 # Fairytown
 
-Fairytown is an explorable procedural fantasy world built for the browser with
-Three.js. You fly through the landscape at fairy scale while terrain, water,
-vegetation and magical landmarks are generated around the camera.
+Fairytown is an explorable procedural world built with
+Three.js. 
 
-Rather than presenting a fixed environment, Fairytown builds a persistent world
-from seeded noise and reusable systems. A dynamic day-and-night cycle changes the sky, fog,
-lighting, shadows, stars, moon and the glow of nocturnal elements.
+The project builds a persistent world from seeded noise and reusable systems. 
 
 ### Status
 
-Fairytown is an evolving creative-development project. Its procedural systems,
-performance architecture and atmosphere are in place, while art direction,
+Fairytown is an evolving project. Procedural systems,
+performance architecture and basic atmosphere are in place, while art direction,
 sound design, landmarks and final asset selection continue to develop.
 
 
@@ -21,23 +18,12 @@ The project began after discovering Jeff Beene's
 [SynthCity](https://jeff-beene.com/portfolio/synthcity/), an infinite procedural
 cyberpunk city made with Three.js.
 
-The goal is not to reproduce SynthCity, but to explore
-how similar procedural principles can create something organic, whimsical and
-quietly magical.
-
 ## Highlights
 
 - Seeded, chunk-based open-world generation and streaming.
 - Procedural terrain with hills, valleys, biome blending and water bodies.
 - Noise-driven vegetation density and natural asset clustering.
-- Multiple nature biomes plus recurring fairy villages.
-- Fairy-style first-person flight with terrain-aware height limits.
-- Dynamic sun, moon, stars, fog, shadows and time-of-day lighting.
-- Distance-based population, incremental generation and asset instancing.
-- Selective nighttime bloom, SSAO and a custom `.cube` color LUT.
-- An accessible loading experience with progress feedback and controls.
 - Debug-only performance, lighting and postprocessing tools at `/debug`.
-
 
 
 ## Controls
@@ -50,24 +36,7 @@ quietly magical.
 | Descend | `C` |
 | Boost | `Shift` |
 
-## Run Locally
-
-```bash
-npm install
-npm run dev
-```
-
-Open the local URL printed by Vite. Use `/debug` to access the development
-controls and performance panels.
-
-## Production Build
-
-```bash
-npm run build
-npm run preview
-```
-
-## Technology
+## Stack
 
 - Three.js
 - JavaScript
@@ -88,5 +57,5 @@ npm run preview
 
 Some repetitive tasks and project cleanup workflows were assisted using Codex support tools during development.
 
-### Notes to my self
-It started with [this](https://github.com/0xMari/procedural-world) so there's always ways to improve and reach what your mind envision at the beginning. Give yourself time to find inspiration✨
+### ref
+first attempt at [procedural world](https://github.com/0xMari/procedural-world)
