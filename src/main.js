@@ -303,7 +303,7 @@ async function bootstrap() {
     width: window.innerWidth,
     height: window.innerHeight,
     showGui: IS_DEBUG_ROUTE,
-    enabled: true,
+    enabled: false,
     resolutionScale: SSAO_RESOLUTION_SCALE
   });
 
